@@ -121,3 +121,22 @@ func TestVerifyAllocationRequiresSignedFrozenScope(t *testing.T) {
 		t.Fatal("tampered allocation signature was accepted")
 	}
 }
+
+func TestNativeProcessNotStartedCleanupBodyRequiresExactScope(t *testing.T) {
+	match := matchFixture{
+		attemptID: "mat_1", authoritySession: "mas_1", rosterRevision: 7, routeGeneration: 2,
+	}
+	body, err := nativeProcessNotStartedCleanupBody(match)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body["world_instance_id"] != "" || body["evidence_kind"] != "native_process_not_started" ||
+		body["roster_revision"] != int64(7) || body["route_generation"] != 2 || body["owned_process_id"] != uint32(0) ||
+		body["process_start_fingerprint"] != "" {
+		t.Fatalf("unexpected pre-native cleanup body: %#v", body)
+	}
+	match.authoritySession = ""
+	if _, err := nativeProcessNotStartedCleanupBody(match); err == nil {
+		t.Fatal("cleanup body accepted an incomplete authority scope")
+	}
+}

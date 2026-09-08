@@ -37,6 +37,7 @@ type Report struct {
 	MatchAttemptsStarted   uint64            `json:"match_attempts_started"`
 	MatchAttemptsAborted   uint64            `json:"match_attempts_aborted"`
 	MatchCleanupPending    uint64            `json:"match_cleanup_pending"`
+	MatchCleanupCleared    uint64            `json:"match_cleanup_cleared"`
 	NativeAdmissionStatus  string            `json:"native_admission_status"`
 	RelayBindSuccess       uint64            `json:"relay_bind_success"`
 	RelayBindFailures      uint64            `json:"relay_bind_failures"`
@@ -87,6 +88,7 @@ func (r Report) WritePrometheus(w io.Writer) {
 	fmt.Fprintf(w, "loadbot_match_attempts_started_total %d\n", r.MatchAttemptsStarted)
 	fmt.Fprintf(w, "loadbot_match_attempts_aborted_total %d\n", r.MatchAttemptsAborted)
 	fmt.Fprintf(w, "loadbot_match_cleanup_pending_total %d\n", r.MatchCleanupPending)
+	fmt.Fprintf(w, "loadbot_match_cleanup_cleared_total %d\n", r.MatchCleanupCleared)
 	fmt.Fprintf(w, "loadbot_relay_bind_total{result=%q} %d\n", "success", r.RelayBindSuccess)
 	fmt.Fprintf(w, "loadbot_relay_bind_total{result=%q} %d\n", "failed", r.RelayBindFailures)
 	fmt.Fprintf(w, "loadbot_relay_migrations_total{result=%q} %d\n", "attempted", r.RelayMigrationAttempts)

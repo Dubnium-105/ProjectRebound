@@ -68,10 +68,13 @@ type matchLobbySnapshot struct {
 }
 
 type matchAttemptView struct {
-	AttemptID       string `json:"attempt_id"`
-	State           string `json:"state"`
-	RosterRevision  int64  `json:"roster_revision"`
-	RouteGeneration int    `json:"route_generation"`
+	AttemptID        string `json:"attempt_id"`
+	State            string `json:"state"`
+	RosterRevision   int64  `json:"roster_revision"`
+	RouteGeneration  int    `json:"route_generation"`
+	PayloadInstalled bool   `json:"payload_installed"`
+	CleanupState     string `json:"cleanup_state"`
+	WorldInstanceID  string `json:"world_instance_id"`
 }
 
 type allocationClaims struct {
@@ -573,21 +576,77 @@ func (r *Runner) completeMatchAttempt(ctx context.Context, match matchFixture) {
 		r.mu.Unlock()
 		return
 	}
+	var completed struct {
+		Data matchLobbySnapshot `json:"data"`
+	}
 	err := r.requestJSONAsWithHeaders(ctx, match.host, http.MethodPost,
 		"/v1/match-attempts/"+match.attemptID+"/host/complete",
 		map[string]string{"X-Match-Authority-Session": match.authoritySession},
-		map[string]any{"success": false, "failure_code": "LOADBOT_TRANSPORT_STOPPED"}, nil)
+		map[string]any{"success": false, "failure_code": "LOADBOT_TRANSPORT_STOPPED"}, &completed)
 	if err != nil {
 		r.recordFailure("match_cleanup")
+		r.mu.Lock()
+		r.report.MatchCleanupPending++
+		r.mu.Unlock()
+		return
 	}
 	r.mu.Lock()
-	if err == nil {
-		r.report.MatchAttemptsAborted++
-	}
-	// Complete deliberately leaves backend cleanup PENDING. This loadbot does
-	// not possess native clear evidence and must not claim NativeCleared.
-	r.report.MatchCleanupPending++
+	r.report.MatchAttemptsAborted++
 	r.mu.Unlock()
+	if err := r.acknowledgeNativeProcessNotStarted(ctx, match, completed.Data); err != nil {
+		r.recordFailure("match_native_cleanup")
+		r.mu.Lock()
+		r.report.MatchCleanupPending++
+		r.mu.Unlock()
+		return
+	}
+	r.mu.Lock()
+	r.report.MatchCleanupCleared++
+	r.mu.Unlock()
+}
+
+func nativeProcessNotStartedCleanupBody(match matchFixture) (map[string]any, error) {
+	if match.attemptID == "" || match.authoritySession == "" || match.rosterRevision < 1 || match.routeGeneration < 1 {
+		return nil, fmt.Errorf("native not-started cleanup scope is incomplete")
+	}
+	return map[string]any{
+		"world_instance_id":         "",
+		"roster_revision":           match.rosterRevision,
+		"route_generation":          match.routeGeneration,
+		"evidence_kind":             "native_process_not_started",
+		"owned_process_id":          uint32(0),
+		"process_start_fingerprint": "",
+	}, nil
+}
+
+func (r *Runner) acknowledgeNativeProcessNotStarted(ctx context.Context, match matchFixture, completed matchLobbySnapshot) error {
+	if completed.LobbyID != match.lobbyID || completed.Attempt == nil ||
+		completed.Attempt.AttemptID != match.attemptID ||
+		completed.Attempt.RosterRevision != match.rosterRevision ||
+		completed.Attempt.RouteGeneration != match.routeGeneration ||
+		completed.Attempt.PayloadInstalled || completed.Attempt.WorldInstanceID != "" {
+		return fmt.Errorf("backend complete response does not prove a pre-native cleanup scope")
+	}
+	body, err := nativeProcessNotStartedCleanupBody(match)
+	if err != nil {
+		return err
+	}
+	var cleared struct {
+		Data matchLobbySnapshot `json:"data"`
+	}
+	if err := r.requestJSONAsWithHeaders(ctx, match.host, http.MethodPost,
+		"/v1/match-attempts/"+match.attemptID+"/host/native-cleared",
+		map[string]string{"X-Match-Authority-Session": match.authoritySession}, body, &cleared); err != nil {
+		return err
+	}
+	if cleared.Data.LobbyID != match.lobbyID || cleared.Data.Attempt == nil ||
+		cleared.Data.Attempt.AttemptID != match.attemptID ||
+		cleared.Data.Attempt.RosterRevision != match.rosterRevision ||
+		cleared.Data.Attempt.RouteGeneration != match.routeGeneration ||
+		cleared.Data.Attempt.WorldInstanceID != "" || cleared.Data.Attempt.CleanupState != "CLEARED" {
+		return fmt.Errorf("native cleanup acknowledgement did not return CLEARED for the exact attempt scope")
+	}
+	return nil
 }
 
 func (r *Runner) openWebSocket(ctx context.Context, client *virtualClient) (*websocket.Conn, error) {

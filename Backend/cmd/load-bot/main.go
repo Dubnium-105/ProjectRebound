@@ -37,10 +37,10 @@ func main() {
 	}
 	report.WritePrometheus(metrics)
 	_ = metrics.Close()
-	fmt.Printf("scenario=%s clients=%d duration=%.1fs success=%d failed=%d success_rate=%.3f%% p50=%.1fms p95=%.1fms p99=%.1fms match_lobbies=%d attempts=%d aborted=%d cleanup_pending=%d native_admission=%s relay_allocations=%d relay_closed=%d relay_bind_success=%d relay_bind_failed=%d migrations=%d/%d packets=%d/%d loss=%.3f%% reconnects=%d refresh_failed=%d memory_delta=%d goroutine_delta=%d\n",
+	fmt.Printf("scenario=%s clients=%d duration=%.1fs success=%d failed=%d success_rate=%.3f%% p50=%.1fms p95=%.1fms p99=%.1fms match_lobbies=%d attempts=%d aborted=%d cleanup_pending=%d cleanup_cleared=%d native_admission=%s relay_allocations=%d relay_closed=%d relay_bind_success=%d relay_bind_failed=%d migrations=%d/%d packets=%d/%d loss=%.3f%% reconnects=%d refresh_failed=%d memory_delta=%d goroutine_delta=%d\n",
 		report.Scenario, report.Clients, report.DurationSeconds, report.SuccessfulRequests, report.FailedRequests,
 		report.SuccessRatePercent, report.P50MS, report.P95MS, report.P99MS, report.MatchLobbiesCreated,
-		report.MatchAttemptsStarted, report.MatchAttemptsAborted, report.MatchCleanupPending, report.NativeAdmissionStatus,
+		report.MatchAttemptsStarted, report.MatchAttemptsAborted, report.MatchCleanupPending, report.MatchCleanupCleared, report.NativeAdmissionStatus,
 		report.RelayAllocations, report.RelayAllocationsClosed, report.RelayBindSuccess, report.RelayBindFailures,
 		report.RelayMigrationSuccess, report.RelayMigrationAttempts, report.PacketsReceived, report.PacketsSent,
 		report.PacketLossPercent, report.WebSocketReconnects, report.TokenRefreshFailures, report.MemoryDeltaBytes, report.GoroutineDelta)
