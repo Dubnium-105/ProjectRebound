@@ -200,7 +200,8 @@ namespace NativeLoginGrantPolicy
                     found = true;
                     for (const wchar_t character : url.substr(start + key.size(), end - start - key.size()))
                     {
-                        if (character > 0x7FU || (!(allowJwtSeparators && character == L'.') &&
+                        if (static_cast<unsigned int>(character) > 0x7FU ||
+                            (!(allowJwtSeparators && character == L'.') &&
                             !IsBase64UrlCharacter(static_cast<char>(character))))
                         {
                             SecureClearString(grant);
