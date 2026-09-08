@@ -138,12 +138,15 @@ int main()
     Expect(StrictRosterAdmissionGate::CanReportStrictOnlineReady(
         true, false, false, true, true, true, false),
         "a Member requires the proven client path without installing server-only hooks");
+    Expect(StrictRosterAdmissionGate::CanReportStrictOnlineReady(
+        true, false, false, false, true, true, false),
+        "a Member may reach native login while the authority proof remains pending");
     Expect(!StrictRosterAdmissionGate::CanReportStrictOnlineReady(
         true, false, false, true, false, true, false),
         "a Member cannot report ready without its native injector");
     Expect(!StrictRosterAdmissionGate::CanReportStrictOnlineReady(
-        true, false, true, false, true, true, false),
-        "role selection cannot substitute for locked native admission proof");
+        true, false, true, false, true, false, true),
+        "an authority cannot substitute role selection for locked native admission proof");
     Expect(!StrictRosterAdmissionGate::CanReportStrictOnlineReady(
         true, false, false, true, false, false, false),
         "an online role cannot disable both required native paths");

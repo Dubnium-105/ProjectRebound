@@ -72,9 +72,12 @@ namespace StrictRosterAdmissionGate
     // Hooks being installed only proves that the fixed native callsites can
     // be guarded.  It does not prove that a signed allocation has produced a
     // native authority admission receipt, and it certainly does not prove
-    // that the client can put a join grant into NMT_Login.  Keep this pure so
-    // status/reporting code cannot accidentally turn either capability into a
-    // readiness flag by observing a started server or an active policy.
+    // that the client can put a join grant into NMT_Login.  Authority roles
+    // therefore require both the path and its observed admission proof.  A
+    // member has no authority path of its own: it may report the client-side
+    // transport capability while waiting for the authority's proof, so that
+    // the real grant/ticket/NMT_Login path can be exercised.  Keep this pure
+    // so status/reporting code cannot turn hooks or policy into proof.
     inline bool CanReportStrictOnlineReady(
         const bool executableVerified,
         const bool offlinePve,
@@ -87,7 +90,7 @@ namespace StrictRosterAdmissionGate
         return executableVerified && !offlinePve &&
             (nativeAuthorityPathRequired || nativeClientGrantInjectionRequired) &&
             (!nativeAuthorityPathRequired || nativeAuthorityPathReady) &&
-            nativeAuthorityAdmissionVerified &&
+            (!nativeAuthorityPathRequired || nativeAuthorityAdmissionVerified) &&
             (!nativeClientGrantInjectionRequired ||
                 nativeClientGrantInjectionVerified);
     }
