@@ -1,0 +1,82 @@
+{
+  "receipt_version": "1",
+  "generated_at_utc": "2026-09-08T03:30:38Z",
+  "target": {
+    "host": "107.182.184.53",
+    "ssh_user": "projectrebound-deploy",
+    "resolved_hostname": "vital-pony-1.localdomain",
+    "scope": "existing production-like backend host",
+    "untouched_host": "192.168.1.2"
+  },
+  "source": {
+    "commit": "1fbc032665497502252f6245f3f1427d13314566",
+    "bundle_path": "C:\\wksp\\ProjectRebound\\.tmp\\deploy-source-20260908-1fbc.tar.gz",
+    "bundle_bytes": 77418028,
+    "bundle_sha256": "88677fa0e9e876664bce0dd38ad10b2a0f08b5afab84e41ee91a23ee7ac2d673",
+    "remote_manifest_sha256": "0e1ccf5b0f790dbebec0d097b7728e0a3e3a6c373992598f999c89ada1c61f80"
+  },
+  "ssh": {
+    "default_probe": { "result": "failed", "exit_code": 255, "error": "Permission denied (publickey,gssapi-keyex,gssapi-with-gssapi-with-mic)." },
+    "existing_dedicated_key_probe": { "result": "succeeded", "read_only": true }
+  },
+  "ci": {
+    "branch": "codex/rebound-deploy-1fbc",
+    "run_id": "34182380378",
+    "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34182380378",
+    "head_sha": "1fbc032665497502252f6245f3f1427d13314566",
+    "conclusion": "failure",
+    "failed_logs": [
+      { "path": "C:\\wksp\\ProjectRebound\\.tmp\\ci-101923892073.log", "sha256": "ecc517d19dd3fda85d9e779407285a976aed7da63e46918ad5a6f2fe79ef0d08", "reason": "deployment config job: Backend/deploy path missing and source deployment test exited 1" },
+      { "path": "C:\\wksp\\ProjectRebound\\.tmp\\ci-101923892176.log", "sha256": "a3f8d456a490aeb074a1cdd8075848ead34969e0a550542e4ff46e5883db93b2", "reason": "C++ warnings treated as errors: signedness and missing initializer" },
+      { "path": "C:\\wksp\\ProjectRebound\\.tmp\\ci-101923892182.log", "sha256": "ef1581975564e3f9fff3447c41ec8844fad9b77dfe1d0b60a8b1d3fd84733fc3", "reason": "backend job: gofmt check failed" },
+      { "path": "C:\\wksp\\ProjectRebound\\.tmp\\ci-101923892220.log", "sha256": "1e3111e11c73ba68cdbc3371add8965902b55744a9c2b0c61634e34cca176236", "reason": "admin web audit: one moderate vulnerability" }
+    ]
+  },
+  "backup": {
+    "path": "/opt/projectrebound-deploy/backups/projectrebound-20260908T030310Z.dump",
+    "bytes": 1692584,
+    "sha256": "25211a35364d0ad6097f562451cfb0e1e5d7247450c20f7c3f0c9e53745feb0a",
+    "pg_restore_list": "PASS"
+  },
+  "env": {
+    "backup_path": "/opt/projectrebound-deploy/shared/control-plane.env.pre-source-1fbc-20260908T031000Z.bak",
+    "original_sha256": "d08234fff9f5dc87738bd29129e06ef0aa5f64e6c0f753fa8d5a7dd084441659",
+    "temporary_modified_sha256": "869c5cffa06b2ac7ee9c7824c341b67de63187bc2d30636a1114f2b5bf1eef2f",
+    "restored_sha256": "d08234fff9f5dc87738bd29129e06ef0aa5f64e6c0f753fa8d5a7dd084441659",
+    "restore": "PASS; conditional hash match before copy"
+  },
+  "build_attempt": {
+    "remote_log": "/opt/projectrebound-deploy/deploy-logs/control-source-1fbc03266549-20260908T031700Z.log",
+    "remote_log_bytes": 28672,
+    "remote_log_sha256": "8b0c3c7c5809040f8195f3e913afe45cb0d2b5d1afb27ee3da6fd90276b564c0",
+    "outcome": "ABORTED_BEFORE_COMPOSE_UP",
+    "reason": "root filesystem reached approximately 100 MB during source Docker build",
+    "local_ssh_exit_code": 1,
+    "remote_deploy_exit_code": "not emitted because build was interrupted",
+    "database_migration": "NOT_RUN",
+    "container_switch": "NOT_RUN"
+  },
+  "cleanup": {
+    "remote_source_root": "/opt/projectrebound-deploy/source-releases/sha-1fbc03266549",
+    "remote_source_root_removed": true,
+    "remote_tar": "/tmp/projectrebound-source-1fbc03266549.tar.gz",
+    "remote_tar_removed": true,
+    "recovered_bytes": 259915773,
+    "build_cache": "not removed during final cleanup; only earlier builder-prune was performed"
+  },
+  "final_state": {
+    "current_control_release": "/opt/projectrebound-deploy/releases/sha-33f8291529d105422c5184dc71b41bf880b8fd1c-33241801890-1-control",
+    "current_control_image": "ghcr.io/dubnium-105/projectrebound-control-plane:sha-33f8291529d105422c5184dc71b41bf880b8fd1c",
+    "current_meta_release": "/opt/projectrebound-deploy/releases/sha-4e0767f91e340a80f4c04e3adb385afaf9804cdb-31939101004-1-meta",
+    "current_meta_image": "ghcr.io/dubnium-105/projectrebound-meta-server:sha-4e0767f91e340a80f4c04e3adb385afaf9804cdb",
+    "control_health": "healthy",
+    "meta_health": "healthy",
+    "postgres_health": "healthy",
+    "redis_health": "healthy",
+    "schema": "43/43",
+    "env_sha256": "d08234fff9f5dc87738bd29129e06ef0aa5f64e6c0f753fa8d5a7dd084441659",
+    "disk_available": "1.2G of 19G",
+    "public_strict_version": "NOT_UPDATED"
+  },
+  "evidence_note": "No token, private key, database contents, or secret value is included."
+}

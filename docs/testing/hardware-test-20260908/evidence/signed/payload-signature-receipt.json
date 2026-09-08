@@ -1,0 +1,23 @@
+﻿{
+    "schema_version":  1,
+    "status":  "PASS_TEST_SIGNATURE_ONLY",
+    "started_at":  "2026-09-08T02:43:15.4533784Z",
+    "finished_at":  "2026-09-08T02:43:16.0917413Z",
+    "input_path":  "C:\\wksp\\ProjectRebound\\.tmp\\strict-roster-20260907\\artifacts\\frozen\\297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b\\Payload.dll",
+    "input_sha256":  "297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b",
+    "output_path":  "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\signed\\Payload.dll",
+    "output_sha256":  "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53",
+    "output_bytes":  2096440,
+    "signer_subject":  "CN=Project Rebound Strict Roster Lab",
+    "signer_thumbprint":  "B041917B2322ED509435B72356BA5AD9EA053378",
+    "signer_valid_until":  "2027-08-26T14:32:08.0000000Z",
+    "authenticode_status":  "UnknownError",
+    "win_verify_trust_hresult":  -2146762487,
+    "private_key_exported":  false,
+    "trust_store_modified":  false,
+    "timestamping":  "NOT_RUN",
+    "release_ready":  false,
+    "failure_type":  null,
+    "script_sha256":  "7a33c2be43467fab835a36c3a3d396d38d5bc5c75b10a80de306761fba26ee85",
+    "scope":  "Actual test Authenticode signing and signature verification only; no native gameplay, production signing, updater publication, or full release acceptance."
+}

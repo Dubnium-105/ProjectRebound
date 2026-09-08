@@ -1,0 +1,16 @@
+REMOTE_PROBE host=192.168.1.2
+MS-H311M
+Linux 6.12.95+deb13-amd64 x86_64 GNU/Linux
+DOCKER_SERVER=26.1.5+dfsg1
+CONTAINER project-rebound-control-plane-meta-server-1 STATUS=Restarting (1) 24 seconds ago IMAGE=project-rebound/meta-server:loadout-native-20260805-fe5065a38a14
+CONTAINER project-rebound-control-plane-control-plane-1 STATUS=Up 10 days (healthy) IMAGE=project-rebound/control-plane:game-server-pki-20260802
+CONTAINER project-rebound-control-plane-admin-web-1 STATUS=Up 10 days IMAGE=project-rebound/admin-web:game-server-pki-20260802
+CONTAINER project-rebound-control-plane-meta-postgres-provision-1 STATUS=Exited (0) 5 weeks ago IMAGE=postgres:17-alpine
+CONTAINER project-rebound-control-plane-meta-redis-provision-1 STATUS=Exited (0) 5 weeks ago IMAGE=redis:7-alpine
+CONTAINER project-rebound-control-plane-postgres-1 STATUS=Up 10 days (healthy) IMAGE=postgres:17-alpine
+CONTAINER project-rebound-control-plane-redis-1 STATUS=Up 10 days (healthy) IMAGE=redis:7-alpine
+CONTAINER=/project-rebound-control-plane-control-plane-1 IMAGE=project-rebound/control-plane:game-server-pki-20260802 STATUS=running EXIT=0 RESTARTS=19 OOM=false HEALTH=healthy WORKDIR=/mnt/sda1/project-rebound/compose COMPOSE=/mnt/sda1/project-rebound/compose/docker-compose.yaml,/mnt/sda1/project-rebound/compose/docker-compose.meta.yaml
+CONTAINER=/project-rebound-control-plane-meta-server-1 IMAGE=project-rebound/meta-server:loadout-native-20260805-fe5065a38a14 STATUS=restarting EXIT=1 RESTARTS=15167 OOM=false HEALTH=unhealthy WORKDIR=/mnt/sda1/project-rebound/compose COMPOSE=/mnt/sda1/project-rebound/compose/docker-compose.yaml,/mnt/sda1/project-rebound/compose/docker-compose.meta.yaml
+CONTAINER=/project-rebound-control-plane-postgres-1 IMAGE=postgres:17-alpine STATUS=running EXIT=0 RESTARTS=19 OOM=false HEALTH=healthy WORKDIR=/mnt/sda1/project-rebound/compose COMPOSE=/mnt/sda1/project-rebound/compose/docker-compose.yaml
+CONTAINER=/project-rebound-control-plane-redis-1 IMAGE=redis:7-alpine STATUS=running EXIT=0 RESTARTS=0 OOM=false HEALTH=healthy WORKDIR=/mnt/sda1/project-rebound/compose COMPOSE=/mnt/sda1/project-rebound/compose/docker-compose.yaml
+EXIT_CODE=0

@@ -1,0 +1,14 @@
+{
+    "schema_version":  1,
+    "operation":  "restore",
+    "status":  "completed",
+    "game_win64":  "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\isolated-install\\Boundary\\ProjectBoundary\\Binaries\\Win64",
+    "restored_payload_sha256":  "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+    "source_backup":  "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\isolated-install\\backup\\20260908T031912006Z-5d554d92fb7546c2bebf7c7394194ac7\\Payload.dll.before-install",
+    "toolbox_winverifytrust_hresult":  -2146762487,
+    "toolbox_signer_thumbprint":  "B041917B2322ED509435B72356BA5AD9EA053378",
+    "payload_winverifytrust_hresult":  -2146762487,
+    "payload_signer_thumbprint":  "B041917B2322ED509435B72356BA5AD9EA053378",
+    "steam_api64_sha256":  "a44e5537939ae4eebc69000589aa9b2437a667813a1657cc779198bae9b815a9",
+    "completed_at":  "2026-09-08T03:19:25.5561360Z"
+}

@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "purpose": "hardware-test-only",
+  "release_ready": false,
+  "package_id": "rebound-hardware-test-20260908-r2",
+  "source_commits": {
+    "ProjectRebound": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+    "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+  },
+  "source_scope": "ProjectRebound identifies the actual Payload build; its Payload subtree equals the current backend candidate.",
+  "backend_candidate_commit": "1fbc032665497502252f6245f3f1427d13314566",
+  "backend_deployment_status": "NOT_UPDATED",
+  "backend_observation": {
+    "observed_at_utc": "2026-09-08T03:30:38Z",
+    "schema": 43,
+    "containers": "existing control/meta/PostgreSQL/Redis healthy",
+    "candidate_update": "source build aborted due to disk space; CI failed; no migration or container switch",
+    "temporary_configuration": "restored with original SHA256"
+  },
+  "service_origins": [
+    "https://api.project-rebound.space",
+    "https://cnapi.project-rebound.space",
+    "https://meta.project-rebound.space"
+  ],
+  "backend_schema_required": 48,
+  "ipc_protocol": "strict-roster-v2",
+  "feature_mode": "Tauri custom-protocol; default product features; no lab-testing",
+  "pinned_game": {
+    "filename": "ProjectBoundarySteam-Win64-Shipping.exe",
+    "sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "bytes": 102362112
+  },
+  "msvc_minimum_version": "14.50.35717",
+  "strict_payload_sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53",
+  "required_artifacts": {
+    "windows-x64": [
+      {
+        "path": "Payload.dll",
+        "bytes": 2096440,
+        "sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53"
+      },
+      {
+        "path": "rebound_toolbox_tauri.exe",
+        "bytes": 49286456,
+        "sha256": "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75"
+      }
+    ]
+  },
+  "signatures": {
+    "payload": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b",
+      "output_sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53",
+      "output_bytes": 2096440,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    },
+    "toolbox": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "ccd54ec0b270189bb7c8cabcf7170cfe1ae08eafd231a5c735e16a59a8b288b6",
+      "output_sha256": "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75",
+      "output_bytes": 49286456,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    }
+  },
+  "native_online_acceptance": {
+    "status": "BLOCKED",
+    "executed_for_signed_pair": false,
+    "reason": "Current Payload reports native_authority_admission_verified=false; ordinary strict online flow cannot complete. No flag or credential bypass is compiled."
+  },
+  "permitted_test_scope": [
+    "installation and restoration",
+    "package and dependency checks",
+    "Toolbox login to existing services",
+    "managed startup failure observation"
+  ],
+  "distribution_kind": "portable diagnostic delta over an existing complete Rebound game runtime",
+  "publication": {
+    "updater_published": false,
+    "externally_uploaded": false
+  },
+  "package_role": "windows-x64",
+  "files": [
+    {
+      "path": "Check-ThisMachine.ps1",
+      "bytes": 1642,
+      "sha256": "7a9d6fdb1d2233c71cdda12e0c5466de5f81426d795ffd58cb80e0b82a6b9519"
+    },
+    {
+      "path": "Install-StrictPayload.ps1",
+      "bytes": 14271,
+      "sha256": "e90a40ad33af0c766be2d1ee05e96c5ad6001459678796ca983d8960d258585f"
+    },
+    {
+      "path": "licenses/Embedded-Rebound-LICENSE.txt",
+      "bytes": 35184,
+      "sha256": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75"
+    },
+    {
+      "path": "licenses/ProjectRebound-LICENSE.txt",
+      "bytes": 35184,
+      "sha256": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75"
+    },
+    {
+      "path": "licenses/VNT-THIRD-PARTY-NOTICES.txt",
+      "bytes": 353,
+      "sha256": "83b5522a51100f5ec2792b71259e735fa8de72c66886d17058d2eb515fa6f1e5"
+    },
+    {
+      "path": "native/Collect-WindowsNative.ps1",
+      "bytes": 2869,
+      "sha256": "cacc4e738147caaa86e45466b2a4bd3441510afa3f806687305f46adebcc17e0"
+    },
+    {
+      "path": "native/Common-WindowsNative.ps1",
+      "bytes": 43888,
+      "sha256": "b216fd665da3e918ba8a09947f7c5dc3ba60f525740239a41749d476bf56234b"
+    },
+    {
+      "path": "native/package-manifest.schema.json",
+      "bytes": 1577,
+      "sha256": "13bab1173b09ba31f9223d8d50482b9b869dc3d723cf649a8e7fb8d8734315d2"
+    },
+    {
+      "path": "native/Preflight-WindowsNative.ps1",
+      "bytes": 2153,
+      "sha256": "213a06fdaf404cf47a6a71f4299b6c7161123632079105ed4ce0aa10bc4ec3d0"
+    },
+    {
+      "path": "native/README.md",
+      "bytes": 6076,
+      "sha256": "69078efb93bd408427f6cb4e65eb5e9da0da496b33a4c22c5aac4b023c831451"
+    },
+    {
+      "path": "native/Test-WindowsNative.ps1",
+      "bytes": 4075,
+      "sha256": "d609521aed16fef3b953d3aaef693ff508c07b561ed77fe05fe8db2f7e24f550"
+    },
+    {
+      "path": "payload-manifest.json",
+      "bytes": 1915,
+      "sha256": "a638df27131ace588e2f0c9f132b03e7398fd7c56d073fd5ea1a1f62eedf81d8"
+    },
+    {
+      "path": "Payload.dll",
+      "bytes": 2096440,
+      "sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53"
+    },
+    {
+      "path": "README.zh-CN.md",
+      "bytes": 5651,
+      "sha256": "634000dd8d32a79a1f6c6f2f32b2dd7248905e442e59b9464062c662d15d0c19"
+    },
+    {
+      "path": "rebound_toolbox_tauri.exe",
+      "bytes": 49286456,
+      "sha256": "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75"
+    },
+    {
+      "path": "Restore-StrictPayload.ps1",
+      "bytes": 9936,
+      "sha256": "8c936821959b5e259ca099e10fe08748751c0377fa2d6b1c82bdeecf17f46f55"
+    },
+    {
+      "path": "Run-Toolbox.cmd",
+      "bytes": 207,
+      "sha256": "64858c4549341f7899626724966b0ce01aee1a1eb89f09c2067b5f78a71c02d7"
+    },
+    {
+      "path": "TEST-MATRIX.zh-CN.md",
+      "bytes": 3812,
+      "sha256": "e02f5c414ddca1b1632cc3ea9331a8d13b2fb7529c0cc681d083892d5d09a523"
+    }
+  ]
+}

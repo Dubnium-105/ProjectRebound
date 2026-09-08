@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "files": [
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\build-receipt.json",
+      "path": "evidence/toolbox/build-receipt.json",
+      "bytes": 13714,
+      "sha256": "9eddde45ae6f4ad7390e993d9e7dfe575875bc5055ca28a17150de3793c988a5"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\tauri-build-production-signed-payload-cached-target.log",
+      "path": "evidence/toolbox/tauri-build-production-signed-payload-cached-target.log",
+      "bytes": 2838,
+      "sha256": "ef2c66f23433f7a70641494b66a3d0f454a305658757da532b28eff30b1dab2a"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\wintrust-probe.log",
+      "path": "evidence/wintrust-probe.log",
+      "bytes": 908,
+      "sha256": "b9d7db33ed5215e9f1f6ef58e88c0585483987a775ceebd30f0e8c58dcb09c88"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\installer-script-parse-final.log",
+      "path": "evidence/installer-script-parse-final.log",
+      "bytes": 388,
+      "sha256": "90b8475bf29f78e77f859827958a029ac6f600e5184ab87b94a178a4fc40c9a9"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\portable-byte-verify-final.log",
+      "path": "evidence/portable-byte-verify-final.log",
+      "bytes": 44,
+      "sha256": "61b5ab168c80617acb82d7bc28011ed37aa96a044f65eb48d2f73f59b0bf44cc"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\install-preflight-negative-v4.log",
+      "path": "evidence/install-preflight-negative-v4.log",
+      "bytes": 813,
+      "sha256": "f83cb68c543ab5fd55f9cb88d09085c6333bc26022f75d4aaa4674256e5ad0d1"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\restore-preflight-negative-v3.log",
+      "path": "evidence/restore-preflight-negative-v3.log",
+      "bytes": 640,
+      "sha256": "ed1d2b7acf1b0f669fac716d47ff876b0d0d7e16c3c3df63b7f0ffe144452e95"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\installer-negative-manifest-v2.log",
+      "path": "evidence/installer-negative-manifest-v2.log",
+      "bytes": 609,
+      "sha256": "56e4ba0b9c6f8ad67b6cb2878e8f96ded30dce5dbaad9bbf537e5491e6596f8e"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\installer-negative-bytes.log",
+      "path": "evidence/installer-negative-bytes.log",
+      "bytes": 603,
+      "sha256": "7fd01f3ca2131c5930e88633f065910d8179e0c6b62a7ba3296ea97190097841"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\isolated-install\\install-v2.log",
+      "path": "evidence/isolated-install/install-v2.log",
+      "bytes": 1558,
+      "sha256": "d15b06603451aa381b116ad389e6c3cdd882de44dc4c296a59f04746f02dd9ac"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\isolated-install\\restore.log",
+      "path": "evidence/isolated-install/restore.log",
+      "bytes": 943,
+      "sha256": "f6127b48ba3a6902b47ee63e341d15035442f08414085c85af428fa6a6b9e9d7"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\isolated-install\\install.log",
+      "path": "evidence/isolated-install/install.log",
+      "bytes": 494,
+      "sha256": "2c383a3f6e7b94d7cdc680452a2a128b75c9da406d4d23a38a34b2071bec8689"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\tauri-build-production-strict.log",
+      "path": "evidence/toolbox/tauri-build-production-strict.log",
+      "bytes": 253872,
+      "sha256": "74d8f6e87300fcc754583ac341cae5cf5fbdaae287ba2a9772272e869d281014"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\tauri-build-production-signed-payload.log",
+      "path": "evidence/toolbox/tauri-build-production-signed-payload.log",
+      "bytes": 4121,
+      "sha256": "270ff0e0646ad1c3b7dd2ac0bd4f3e4fd26ebff919e16cf3b0d1b4689fd1c339"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\tauri-build-production-signed-payload-retry.log",
+      "path": "evidence/toolbox/tauri-build-production-signed-payload-retry.log",
+      "bytes": 929,
+      "sha256": "813c0e360ff2c0d4b4310878b42650f64d09e4785416a2ce24f3c0f49d6c32f5"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\tauri-build-production-signed-payload-short-target.log",
+      "path": "evidence/toolbox/tauri-build-production-signed-payload-short-target.log",
+      "bytes": 1098,
+      "sha256": "6ae37ad3ee053ab08cbf47c52a4428fa79e43242eeabfd69a3014832a96f1e0d"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\tauri-build-lab-testing.log",
+      "path": "evidence/toolbox/tauri-build-lab-testing.log",
+      "bytes": 15116,
+      "sha256": "084f67582972258dbdbb927f64cebcd8ed8c7a055ea8accb9f76cc9042472f8c"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\isolated-install\\backup\\20260908T031912006Z-5d554d92fb7546c2bebf7c7394194ac7\\payload-install-receipt.json",
+      "path": "evidence/isolated-install/backup/20260908T031912006Z-5d554d92fb7546c2bebf7c7394194ac7/payload-install-receipt.json",
+      "bytes": 1556,
+      "sha256": "2b5395878b70ec7d82170d7eb5c5e6b0e81604af9ed23f6d7a11ab6996abdf7b"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\signed\\payload-signature-receipt.json",
+      "path": "evidence/signed/payload-signature-receipt.json",
+      "bytes": 1392,
+      "sha256": "6b7f5d0f35ed62c7f10e5657ad4b2f8b44307a2e82bea11d9b3e211bbadbcd19"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\signed\\toolbox-signature-receipt.json",
+      "path": "evidence/signed/toolbox-signature-receipt.json",
+      "bytes": 1341,
+      "sha256": "7265605187493f302b1de17cc6ef59313db560970c5cf50a2225ac3c86650135"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\wintrust-probe-output.json",
+      "path": "evidence/wintrust-probe-output.json",
+      "bytes": 910,
+      "sha256": "8b464c8aba37e16a631a3cc5900d9b98340a19cabe8678fb0d870effd566690e"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\wintrust-probe.ps1",
+      "path": "evidence/wintrust-probe.ps1",
+      "bytes": 2178,
+      "sha256": "8d60273bea052a248612bd7f24c6b8c6fd8b8eb2b8ef4cc30367be679ed12380"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\public-metadata.json",
+      "path": "evidence/public-metadata.json",
+      "bytes": 3690,
+      "sha256": "6bb61701f81f4acddc591df1e0a7608d05ac86a07c05aba3f123bcba216223e9"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\final-validation\\preflight.json",
+      "path": "evidence/final-validation/preflight.json",
+      "bytes": 36536,
+      "sha256": "8fbeb0dc7f9c3acd498ba564cf055bca751977f982980cc706e0c41f7d7ed5f7"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\final-validation\\collect.json",
+      "path": "evidence/final-validation/collect.json",
+      "bytes": 37792,
+      "sha256": "c4cf87e4a7aa5e6a153dd4825ba4f1f31e8af2e1a79ceeb980c8b820b92430a7"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\native\\steam-engine-path-receipt.json",
+      "path": "evidence/native/steam-engine-path-receipt.json",
+      "bytes": 5468,
+      "sha256": "6d211e08a762f4cbc1b7dbf12a1aef2a918796cd6ab386c1a77b50010acabbf6"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\server-deployment-readonly-audit-20260908.json",
+      "path": "evidence/server-deployment-readonly-audit-20260908.json",
+      "bytes": 6243,
+      "sha256": "38aa248071dac2293efb525f2153a40a7e373819d56a37d82c57783cfd90d770"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\server-deployment-readonly-probe-20260908T024614Z.log",
+      "path": "evidence/server-deployment-readonly-probe-20260908T024614Z.log",
+      "bytes": 2175,
+      "sha256": "8e4ed763b92a315eb035e0876574ce2c59be0c51450cc81e22d23215e1f7f92e"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\assemble_windows_stage.py",
+      "path": "evidence/assemble_windows_stage.py",
+      "bytes": 4994,
+      "sha256": "928522270773f96444bb3b6b6eb6d027478b5886b9f4481738c7f1822af88bd3"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-final\\package-build-receipt.json",
+      "path": "evidence/package-build-receipt.json",
+      "bytes": 948,
+      "sha256": "a67cd606070ad33a06866de5555c742325a97d6f445f124ca0f79d4b22075f70"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-final\\SHA256SUMS",
+      "path": "evidence/distribution-SHA256SUMS",
+      "bytes": 114,
+      "sha256": "9965a246140019f21e0720118478410108e6cd1eff90906d21916535d6eae247"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-final\\rebound-hardware-test-20260908-windows-x64\\package-manifest.json",
+      "path": "evidence/package-manifest.json",
+      "bytes": 6735,
+      "sha256": "76d562cd90bc65e11554bb4f0317a81140a9d2be8a00aef357aa6975b5868f0a"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-final\\rebound-hardware-test-20260908-windows-x64\\payload-manifest.json",
+      "path": "evidence/payload-manifest.json",
+      "bytes": 1915,
+      "sha256": "a638df27131ace588e2f0c9f132b03e7398fd7c56d073fd5ea1a1f62eedf81d8"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-final\\rebound-hardware-test-20260908-windows-x64\\SHA256SUMS",
+      "path": "evidence/package-SHA256SUMS",
+      "bytes": 1776,
+      "sha256": "fbd037d7e36344b4b2851c77d75770ad825606bc19515deadcbcb33c69f1013c"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\ci-deploy-candidate-run.json",
+      "path": "evidence/ci-deploy-candidate-run.json",
+      "bytes": 14315,
+      "sha256": "ec2b53bc146e093188c05120e1d2d1fd14c5fe8856bd63135a70c62a45526c33"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\ci-deploy-candidate-failures.log",
+      "path": "evidence/ci-deploy-candidate-failures.log",
+      "bytes": 71146,
+      "sha256": "37e05a8bedd15322d74fdacbc62a0af1fafbda1a9086ae51d73173443aa97fb4"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\docs\\testing\\hardware-test-20260908\\validation-summary.json",
+      "path": "evidence/r1-validation-summary.json",
+      "bytes": 3724,
+      "sha256": "34b922fc72f11575c37c4d4a846f70e6e6f69f4f08e83b2cab0fcd9388274755"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\backend-deployment-safe-receipt-20260908T033038Z.json",
+      "path": "evidence/backend-deployment-safe-receipt.json",
+      "bytes": 4711,
+      "sha256": "c92cc26904946520bd2d7706388e96e1b77799b43f79be1a8c592b4459242d20"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\assemble_windows_stage.py",
+      "path": "evidence/r2/assemble_windows_stage.py",
+      "bytes": 5315,
+      "sha256": "35fdf40f74830c637dd7913a5e44114d624d98763a4b7d4bd447fbc739a2f032"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\public-metadata-r2.json",
+      "path": "evidence/r2/public-metadata.json",
+      "bytes": 4017,
+      "sha256": "d29c41ed144c48f14d8a0b029cdac2bd5f2d43c60e1ea73b05f0b5e2b046fd47"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\r2-validation\\preflight.json",
+      "path": "evidence/r2/preflight.json",
+      "bytes": 36536,
+      "sha256": "b4d9bfca1ce3f92206369dede5886784eba6e3186e5b29844b5ed7ec20ab61f6"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\r2-validation\\collect.json",
+      "path": "evidence/r2/collect.json",
+      "bytes": 37792,
+      "sha256": "471ab3d6fe9c3be42a141a4e4ceb1a33297ef2945dd7c179a4975a4e3ad1f202"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-r2\\package-build-receipt.json",
+      "path": "evidence/r2/package-build-receipt.json",
+      "bytes": 948,
+      "sha256": "544d7366db8719935f9dfd0ea416741ea0c026ce93c6f9ce8bc6f3b9630fe5fa"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-r2\\SHA256SUMS",
+      "path": "evidence/r2/distribution-SHA256SUMS",
+      "bytes": 117,
+      "sha256": "3442d45cce969ee7efaad8977f7d0baec4febe93772dfe726ca345b213d93e27"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-r2\\rebound-hardware-test-20260908-r2-windows-x64\\package-manifest.json",
+      "path": "evidence/r2/package-manifest.json",
+      "bytes": 7062,
+      "sha256": "d1bb20a28ab37ec6c4bda9c2ca85a1aec64d6fa51c318929ed7a08ce61b1c95a"
+    },
+    {
+      "source": "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260908-r2\\rebound-hardware-test-20260908-r2-windows-x64\\SHA256SUMS",
+      "path": "evidence/r2/package-SHA256SUMS",
+      "bytes": 1776,
+      "sha256": "750e312da11653bd3fc4a3972d762fb6fb5f563b37f7b3163a8133925c9318cc"
+    }
+  ]
+}

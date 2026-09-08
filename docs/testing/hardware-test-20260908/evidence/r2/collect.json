@@ -1,0 +1,650 @@
+﻿{
+    "schema_version":  1,
+    "tool":  "ProjectRebound.WindowsNativeDistribution.Collect",
+    "tool_version":  "1.0",
+    "generated_at_utc":  "2026-09-08T03:35:16.1182167Z",
+    "mode":  "read_only_no_launch_no_install",
+    "status":  "BLOCKED",
+    "release_ready":  false,
+    "package":  {
+                    "path":  "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\r2-zip-unpacked\\rebound-hardware-test-20260908-r2-windows-x64",
+                    "kind":  "directory",
+                    "manifest_sha256":  "d1bb20a28ab37ec6c4bda9c2ca85a1aec64d6fa51c318929ed7a08ce61b1c95a",
+                    "files":  [
+                                  {
+                                      "path":  "Check-ThisMachine.ps1",
+                                      "bytes":  1642,
+                                      "sha256":  "7a9d6fdb1d2233c71cdda12e0c5466de5f81426d795ffd58cb80e0b82a6b9519"
+                                  },
+                                  {
+                                      "path":  "Install-StrictPayload.ps1",
+                                      "bytes":  14271,
+                                      "sha256":  "e90a40ad33af0c766be2d1ee05e96c5ad6001459678796ca983d8960d258585f"
+                                  },
+                                  {
+                                      "path":  "licenses/Embedded-Rebound-LICENSE.txt",
+                                      "bytes":  35184,
+                                      "sha256":  "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75"
+                                  },
+                                  {
+                                      "path":  "licenses/ProjectRebound-LICENSE.txt",
+                                      "bytes":  35184,
+                                      "sha256":  "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75"
+                                  },
+                                  {
+                                      "path":  "licenses/VNT-THIRD-PARTY-NOTICES.txt",
+                                      "bytes":  353,
+                                      "sha256":  "83b5522a51100f5ec2792b71259e735fa8de72c66886d17058d2eb515fa6f1e5"
+                                  },
+                                  {
+                                      "path":  "native/Collect-WindowsNative.ps1",
+                                      "bytes":  2869,
+                                      "sha256":  "cacc4e738147caaa86e45466b2a4bd3441510afa3f806687305f46adebcc17e0"
+                                  },
+                                  {
+                                      "path":  "native/Common-WindowsNative.ps1",
+                                      "bytes":  43888,
+                                      "sha256":  "b216fd665da3e918ba8a09947f7c5dc3ba60f525740239a41749d476bf56234b"
+                                  },
+                                  {
+                                      "path":  "native/package-manifest.schema.json",
+                                      "bytes":  1577,
+                                      "sha256":  "13bab1173b09ba31f9223d8d50482b9b869dc3d723cf649a8e7fb8d8734315d2"
+                                  },
+                                  {
+                                      "path":  "native/Preflight-WindowsNative.ps1",
+                                      "bytes":  2153,
+                                      "sha256":  "213a06fdaf404cf47a6a71f4299b6c7161123632079105ed4ce0aa10bc4ec3d0"
+                                  },
+                                  {
+                                      "path":  "native/README.md",
+                                      "bytes":  6076,
+                                      "sha256":  "69078efb93bd408427f6cb4e65eb5e9da0da496b33a4c22c5aac4b023c831451"
+                                  },
+                                  {
+                                      "path":  "native/Test-WindowsNative.ps1",
+                                      "bytes":  4075,
+                                      "sha256":  "d609521aed16fef3b953d3aaef693ff508c07b561ed77fe05fe8db2f7e24f550"
+                                  },
+                                  {
+                                      "path":  "payload-manifest.json",
+                                      "bytes":  1915,
+                                      "sha256":  "a638df27131ace588e2f0c9f132b03e7398fd7c56d073fd5ea1a1f62eedf81d8"
+                                  },
+                                  {
+                                      "path":  "Payload.dll",
+                                      "bytes":  2096440,
+                                      "sha256":  "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53"
+                                  },
+                                  {
+                                      "path":  "README.zh-CN.md",
+                                      "bytes":  5651,
+                                      "sha256":  "634000dd8d32a79a1f6c6f2f32b2dd7248905e442e59b9464062c662d15d0c19"
+                                  },
+                                  {
+                                      "path":  "rebound_toolbox_tauri.exe",
+                                      "bytes":  49286456,
+                                      "sha256":  "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75"
+                                  },
+                                  {
+                                      "path":  "Restore-StrictPayload.ps1",
+                                      "bytes":  9936,
+                                      "sha256":  "8c936821959b5e259ca099e10fe08748751c0377fa2d6b1c82bdeecf17f46f55"
+                                  },
+                                  {
+                                      "path":  "Run-Toolbox.cmd",
+                                      "bytes":  207,
+                                      "sha256":  "64858c4549341f7899626724966b0ce01aee1a1eb89f09c2067b5f78a71c02d7"
+                                  },
+                                  {
+                                      "path":  "TEST-MATRIX.zh-CN.md",
+                                      "bytes":  3812,
+                                      "sha256":  "e02f5c414ddca1b1632cc3ea9331a8d13b2fb7529c0cc681d083892d5d09a523"
+                                  }
+                              ],
+                    "source_commits":  {
+                                           "ProjectRebound":  "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+                                           "Toolbox":  "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+                                       },
+                    "msvc_minimum_version":  "14.50.35717",
+                    "pinned_game":  {
+                                        "filename":  "ProjectBoundarySteam-Win64-Shipping.exe",
+                                        "sha256":  "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+                                        "bytes":  102362112
+                                    }
+                },
+    "game":  {
+                 "supplied_path":  "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\ProjectBoundarySteam-Win64-Shipping.exe",
+                 "fixed_sha256":  "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+                 "fixed_bytes":  102362112
+             },
+    "toolbox":  {
+                    "supplied_path":  "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\r2-zip-unpacked\\rebound-hardware-test-20260908-r2-windows-x64\\rebound_toolbox_tauri.exe",
+                    "expected_sha256":  "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75"
+                },
+    "checks":  [
+                   {
+                       "id":  "manifest.schema_version",
+                       "status":  "PASS",
+                       "observed":  1,
+                       "expected":  1,
+                       "note":  "Manifest schema is pinned."
+                   },
+                   {
+                       "id":  "manifest.purpose",
+                       "status":  "PASS",
+                       "observed":  "hardware-test-only",
+                       "expected":  "hardware-test-only",
+                       "note":  "Only hardware-test packages are accepted by this tool."
+                   },
+                   {
+                       "id":  "manifest.release_ready",
+                       "status":  "PASS",
+                       "observed":  false,
+                       "expected":  false,
+                       "note":  "A hardware-test package is not a release claim."
+                   },
+                   {
+                       "id":  "manifest.file.shape:Check-ThisMachine.ps1",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  1642,
+                                        "sha256":  "7a9d6fdb1d2233c71cdda12e0c5466de5f81426d795ffd58cb80e0b82a6b9519"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:Install-StrictPayload.ps1",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  14271,
+                                        "sha256":  "e90a40ad33af0c766be2d1ee05e96c5ad6001459678796ca983d8960d258585f"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:licenses/Embedded-Rebound-LICENSE.txt",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  35184,
+                                        "sha256":  "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:licenses/ProjectRebound-LICENSE.txt",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  35184,
+                                        "sha256":  "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:licenses/VNT-THIRD-PARTY-NOTICES.txt",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  353,
+                                        "sha256":  "83b5522a51100f5ec2792b71259e735fa8de72c66886d17058d2eb515fa6f1e5"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:native/Collect-WindowsNative.ps1",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  2869,
+                                        "sha256":  "cacc4e738147caaa86e45466b2a4bd3441510afa3f806687305f46adebcc17e0"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:native/Common-WindowsNative.ps1",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  43888,
+                                        "sha256":  "b216fd665da3e918ba8a09947f7c5dc3ba60f525740239a41749d476bf56234b"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:native/package-manifest.schema.json",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  1577,
+                                        "sha256":  "13bab1173b09ba31f9223d8d50482b9b869dc3d723cf649a8e7fb8d8734315d2"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:native/Preflight-WindowsNative.ps1",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  2153,
+                                        "sha256":  "213a06fdaf404cf47a6a71f4299b6c7161123632079105ed4ce0aa10bc4ec3d0"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:native/README.md",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  6076,
+                                        "sha256":  "69078efb93bd408427f6cb4e65eb5e9da0da496b33a4c22c5aac4b023c831451"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:native/Test-WindowsNative.ps1",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  4075,
+                                        "sha256":  "d609521aed16fef3b953d3aaef693ff508c07b561ed77fe05fe8db2f7e24f550"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:payload-manifest.json",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  1915,
+                                        "sha256":  "a638df27131ace588e2f0c9f132b03e7398fd7c56d073fd5ea1a1f62eedf81d8"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:Payload.dll",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  2096440,
+                                        "sha256":  "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:README.zh-CN.md",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  5651,
+                                        "sha256":  "634000dd8d32a79a1f6c6f2f32b2dd7248905e442e59b9464062c662d15d0c19"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:rebound_toolbox_tauri.exe",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  49286456,
+                                        "sha256":  "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:Restore-StrictPayload.ps1",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  9936,
+                                        "sha256":  "8c936821959b5e259ca099e10fe08748751c0377fa2d6b1c82bdeecf17f46f55"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:Run-Toolbox.cmd",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  207,
+                                        "sha256":  "64858c4549341f7899626724966b0ce01aee1a1eb89f09c2067b5f78a71c02d7"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.file.shape:TEST-MATRIX.zh-CN.md",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  3812,
+                                        "sha256":  "e02f5c414ddca1b1632cc3ea9331a8d13b2fb7529c0cc681d083892d5d09a523"
+                                    },
+                       "expected":  "positive byte count and SHA-256",
+                       "note":  "Manifest file entry shape."
+                   },
+                   {
+                       "id":  "manifest.files.unique",
+                       "status":  "PASS",
+                       "observed":  0,
+                       "expected":  0,
+                       "note":  "File paths must be unique case-insensitively."
+                   },
+                   {
+                       "id":  "manifest.runtime_files",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "payload_present":  true,
+                                        "missing_optional_player_files":  [
+                                                                              "dxgi.dll",
+                                                                              "dt_itemtype.json",
+                                                                              "steam_appid.txt",
+                                                                              "project_rebound_version.txt"
+                                                                          ],
+                                        "unexpected_top_level":  [
+                                                                     "Check-ThisMachine.ps1",
+                                                                     "Install-StrictPayload.ps1",
+                                                                     "payload-manifest.json",
+                                                                     "README.zh-CN.md",
+                                                                     "Restore-StrictPayload.ps1",
+                                                                     "Run-Toolbox.cmd",
+                                                                     "TEST-MATRIX.zh-CN.md"
+                                                                 ]
+                                    },
+                       "expected":  "Payload.dll plus an optional full five-file player runtime",
+                       "note":  "Hardware-test package carries Payload.dll; remaining player files stay under Toolbox managed installation."
+                   },
+                   {
+                       "id":  "manifest.files.complete",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "listed":  18,
+                                        "package_entries":  20
+                                    },
+                       "expected":  "all package files except manifest/SHA256SUMS",
+                       "note":  "Manifest must bind every distributable file."
+                   },
+                   {
+                       "id":  "manifest.pinned_game",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "sha256":  "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+                                        "bytes":  102362112
+                                    },
+                       "expected":  {
+                                        "sha256":  "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+                                        "bytes":  102362112
+                                    },
+                       "note":  "The package must target the reviewed fixed Boundary executable."
+                   },
+                   {
+                       "id":  "manifest.source_commits",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "ProjectRebound":  "present",
+                                        "Toolbox":  "present"
+                                    },
+                       "expected":  "at least two 40-hex source commits",
+                       "note":  "Source provenance is metadata only; it does not establish runtime admission."
+                   },
+                   {
+                       "id":  "package.file_hashes",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "checked":  18,
+                                        "mismatches":  [
+
+                                                       ]
+                                    },
+                       "expected":  "manifest-listed file bytes and SHA-256",
+                       "note":  "Every listed package byte is verified before any install step."
+                   },
+                   {
+                       "id":  "package.no_legacy_or_runtime_extras",
+                       "status":  "PASS",
+                       "observed":  [
+
+                                    ],
+                       "expected":  "no ServerLauncher/legacy server/game executable/log paths",
+                       "note":  "Legacy online compatibility and raw runtime logs are outside the distribution boundary."
+                   },
+                   {
+                       "id":  "package.manifest.hash",
+                       "status":  "PASS",
+                       "observed":  "d1bb20a28ab37ec6c4bda9c2ca85a1aec64d6fa51c318929ed7a08ce61b1c95a",
+                       "expected":  "d1bb20a28ab37ec6c4bda9c2ca85a1aec64d6fa51c318929ed7a08ce61b1c95a",
+                       "note":  "Manifest bytes are bound to the evidence."
+                   },
+                   {
+                       "id":  "package.sha256sums",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "entries":  19,
+                                        "manifest_sha256_matches":  true
+                                    },
+                       "expected":  {
+                                        "entries":  19,
+                                        "manifest_sha256":  "d1bb20a28ab37ec6c4bda9c2ca85a1aec64d6fa51c318929ed7a08ce61b1c95a"
+                                    },
+                       "note":  "Optional sidecar must bind the manifest and every package file; its own hash is excluded."
+                   },
+                   {
+                       "id":  "package.reparse_points",
+                       "status":  "PASS",
+                       "observed":  0,
+                       "expected":  0,
+                       "note":  "Reparse-point files are not accepted in the package."
+                   },
+                   {
+                       "id":  "host.windows_x64",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "is_64bit":  true,
+                                        "version":  "10.0.26100.0",
+                                        "architecture":  "AMD64"
+                                    },
+                       "expected":  "Windows 10/11 x64",
+                       "note":  "Fixed Boundary build requires a 64-bit Windows host."
+                   },
+                   {
+                       "id":  "game.exe.fixed_hash",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  102362112,
+                                        "sha256":  "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843"
+                                    },
+                       "expected":  {
+                                        "bytes":  102362112,
+                                        "sha256":  "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843"
+                                    },
+                       "note":  "The running target must be the fixed reviewed Boundary image."
+                   },
+                   {
+                       "id":  "game.path.resolved",
+                       "status":  "PASS",
+                       "observed":  "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64\\ProjectBoundarySteam-Win64-Shipping.exe",
+                       "expected":  "resolved path",
+                       "note":  "Read-only path resolution."
+                   },
+                   {
+                       "id":  "game.payload.present",
+                       "status":  "BLOCKED",
+                       "observed":  {
+                                        "bytes":  1731984,
+                                        "sha256":  "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3"
+                                    },
+                       "expected":  {
+                                        "sha256":  "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53"
+                                    },
+                       "note":  "Installed Payload was read only; no replacement was attempted."
+                   },
+                   {
+                       "id":  "steam.api64",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "path":  "C:\\Steam\\steamapps\\common\\Boundary\\Engine\\Binaries\\ThirdParty\\Steamworks\\Steamv157\\Win64\\steam_api64.dll",
+                                        "bytes":  298856,
+                                        "sha256":  "a44e5537939ae4eebc69000589aa9b2437a667813a1657cc779198bae9b815a9",
+                                        "signature":  {
+                                                          "status":  "Valid",
+                                                          "signer":  "Valve Corp.",
+                                                          "has_signature":  true
+                                                      }
+                                    },
+                       "expected":  {
+                                        "path":  "Engine/Binaries/ThirdParty/Steamworks/Steamv157/Win64/steam_api64.dll",
+                                        "bytes":  298856,
+                                        "sha256":  "a44e5537939ae4eebc69000589aa9b2437a667813a1657cc779198bae9b815a9"
+                                    },
+                       "note":  "Steam API must exist in the fixed Engine Steamv157 tree and match the pinned Steam build when supplied."
+                   },
+                   {
+                       "id":  "steam.client",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "present":  true,
+                                        "signature":  {
+                                                          "status":  "Valid",
+                                                          "signer":  "Valve Corp.",
+                                                          "has_signature":  true
+                                                      }
+                                    },
+                       "expected":  "Steam installed",
+                       "note":  "Steam executable found without exposing registry configuration."
+                   },
+                   {
+                       "id":  "steam.process",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "running":  true,
+                                        "count":  1
+                                    },
+                       "expected":  "running Steam process",
+                       "note":  "This check never launches Steam."
+                   },
+                   {
+                       "id":  "game.process.absent",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "exact_process_count":  0
+                                    },
+                       "expected":  0,
+                       "note":  "No Boundary process may be running during installation or package verification; no process is terminated by this tool."
+                   },
+                   {
+                       "id":  "webview2.runtime",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "present":  true,
+                                        "versions":  [
+                                                         "151.0.4129.107",
+                                                         "152.0.4191.66"
+                                                     ],
+                                        "count":  2
+                                    },
+                       "expected":  "installed WebView2 Evergreen runtime",
+                       "note":  "Toolbox Tauri requires WebView2; no installer is run."
+                   },
+                   {
+                       "id":  "vc.runtime",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "required":  [
+                                                         "vcruntime140.dll",
+                                                         "vcruntime140_1.dll",
+                                                         "msvcp140.dll"
+                                                     ],
+                                        "present":  [
+                                                        {
+                                                            "name":  "vcruntime140.dll",
+                                                            "bytes":  123472,
+                                                            "file_version":  "14.50.35719.0"
+                                                        },
+                                                        {
+                                                            "name":  "vcruntime140_1.dll",
+                                                            "bytes":  47264,
+                                                            "file_version":  "14.50.35719.0"
+                                                        },
+                                                        {
+                                                            "name":  "msvcp140.dll",
+                                                            "bytes":  553552,
+                                                            "file_version":  "14.50.35719.0"
+                                                        }
+                                                    ],
+                                        "missing":  [
+
+                                                    ],
+                                        "complete":  true,
+                                        "minimum_version":  "14.50.35717",
+                                        "minimum_declared":  true,
+                                        "below_minimum":  [
+
+                                                          ],
+                                        "version_failures":  [
+
+                                                             ],
+                                        "compatible":  true
+                                    },
+                       "expected":  {
+                                        "files":  [
+                                                      "vcruntime140.dll",
+                                                      "vcruntime140_1.dll",
+                                                      "msvcp140.dll"
+                                                  ],
+                                        "minimum_version":  "14.50.35717"
+                                    },
+                       "note":  "MSVC runtime DLLs and the manifest minimum version are checked read only."
+                   },
+                   {
+                       "id":  "toolbox.exe",
+                       "status":  "PASS",
+                       "observed":  {
+                                        "bytes":  49286456,
+                                        "sha256":  "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75",
+                                        "signature":  {
+                                                          "status":  "UnknownError",
+                                                          "signer":  "Project Rebound Strict Roster Lab",
+                                                          "has_signature":  true
+                                                      }
+                                    },
+                       "expected":  {
+                                        "sha256":  "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75"
+                                    },
+                       "note":  "Toolbox is measured only; this tool never starts it."
+                   }
+               ],
+    "native_online_admission":  {
+                                    "status":  "NOT_RUN",
+                                    "reason":  "This distribution preflight never launches Boundary, connects a Payload pipe, sends a grant, or changes strict/native_verified state."
+                                },
+    "safety":  {
+                   "game_started":  false,
+                   "dll_replaced":  false,
+                   "named_pipe_written":  false,
+                   "credentials_collected":  false,
+                   "raw_logs_collected":  false
+               },
+    "collection":  {
+                       "scope":  "package_bytes_host_dependency_versions_and_hashes_only",
+                       "collected":  [
+                                         "package-manifest.json",
+                                         "package file SHA-256/size",
+                                         "fixed game SHA-256/size",
+                                         "Steam/WebView2/MSVC presence/version summaries",
+                                         "exact game process count"
+                                     ],
+                       "omitted":  [
+                                       "account identifiers",
+                                       "Steam identifiers",
+                                       "access/refresh tokens",
+                                       "join grants",
+                                       "tickets",
+                                       "raw client logs",
+                                       "Steam/config files",
+                                       "command lines",
+                                       "environment variable values"
+                                   ],
+                       "status":  "PASS"
+                   }
+}

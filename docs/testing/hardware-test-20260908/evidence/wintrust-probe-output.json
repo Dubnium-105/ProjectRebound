@@ -1,0 +1,21 @@
+[
+    {
+        "path":  "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\signed\\rebound_toolbox_tauri.exe",
+        "sha256":  "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75",
+        "winverifytrust_hresult":  -2146762487,
+        "accepted_by_gate":  true
+    },
+    {
+        "path":  "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\signed\\Payload.dll",
+        "sha256":  "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53",
+        "winverifytrust_hresult":  -2146762487,
+        "accepted_by_gate":  true
+    },
+    {
+        "path":  "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\payload\\Payload-297c-unsigned.dll",
+        "sha256":  "297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b",
+        "winverifytrust_hresult":  -2146762496,
+        "accepted_by_gate":  false
+    }
+]
+

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "distribution_kind": "portable_test_package",
+  "contract_version": "strict-authoritative-online-v1",
+  "ipc_protocol": "strict-roster-v2",
+  "backend_schema": 48,
+  "game_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+  "payload_filename": "Payload.dll",
+  "payload_sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53",
+  "payload_signature_required": true,
+  "toolbox_filename": "rebound_toolbox_tauri.exe",
+  "toolbox_sha256": "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75",
+  "toolbox_signature_required": true,
+  "strict_build": "PROJECT_REBOUND_STRICT_PAYLOAD_SHA256=77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53",
+  "source_commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+  "build_command": "CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 PROJECT_REBOUND_STRICT_PAYLOAD_SHA256=77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53 frontend\\node_modules\\.bin\\tauri.cmd build --ci --no-sign",
+  "build_exit_code": 0,
+  "build_log": "tauri-build-production-signed-payload-cached-target.log",
+  "release_ready": false,
+  "release_blockers": [
+    "Payload and Toolbox signed with Project Rebound Strict Roster Lab test certificate; WinVerifyTrust reports CERT_E_UNTRUSTEDROOT and is accepted by product gate",
+    "No native online admission or gameplay acceptance performed",
+    "Package targets an existing ProjectBoundary/Rebound installation and requires pre-existing Payload.dll for reversible install"
+  ],
+  "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+  "toolbox_signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+  "steam_api64_path": "../../../Engine/Binaries/ThirdParty/Steamworks/Steamv157/Win64/steam_api64.dll",
+  "steam_api64_sha256": "a44e5537939ae4eebc69000589aa9b2437a667813a1657cc779198bae9b815a9"
+}

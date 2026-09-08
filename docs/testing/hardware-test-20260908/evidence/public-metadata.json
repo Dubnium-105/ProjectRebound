@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "purpose": "hardware-test-only",
+  "release_ready": false,
+  "package_id": "rebound-hardware-test-20260908",
+  "source_commits": {
+    "ProjectRebound": "dc49017e488e8b5bf6f6544b4428c46d230c0abd",
+    "Toolbox": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482"
+  },
+  "source_scope": "ProjectRebound identifies the actual Payload build; its Payload subtree equals the current backend candidate.",
+  "backend_candidate_commit": "1fbc032665497502252f6245f3f1427d13314566",
+  "backend_deployment_status": "NOT_ESTABLISHED_BY_CLIENT_PACKAGE",
+  "service_origins": [
+    "https://api.project-rebound.space",
+    "https://cnapi.project-rebound.space",
+    "https://meta.project-rebound.space"
+  ],
+  "backend_schema_required": 48,
+  "ipc_protocol": "strict-roster-v2",
+  "feature_mode": "Tauri custom-protocol; default product features; no lab-testing",
+  "pinned_game": {
+    "filename": "ProjectBoundarySteam-Win64-Shipping.exe",
+    "sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "bytes": 102362112
+  },
+  "msvc_minimum_version": "14.50.35717",
+  "strict_payload_sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53",
+  "required_artifacts": {
+    "windows-x64": [
+      {
+        "path": "Payload.dll",
+        "bytes": 2096440,
+        "sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53"
+      },
+      {
+        "path": "rebound_toolbox_tauri.exe",
+        "bytes": 49286456,
+        "sha256": "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75"
+      }
+    ]
+  },
+  "signatures": {
+    "payload": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "297c6ea8585c8a606b3ab31a9949bcb153d7469b890ef8603521fb8af2cbfc1b",
+      "output_sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53",
+      "output_bytes": 2096440,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    },
+    "toolbox": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "ccd54ec0b270189bb7c8cabcf7170cfe1ae08eafd231a5c735e16a59a8b288b6",
+      "output_sha256": "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75",
+      "output_bytes": 49286456,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    }
+  },
+  "native_online_acceptance": {
+    "status": "BLOCKED",
+    "executed_for_signed_pair": false,
+    "reason": "Current Payload reports native_authority_admission_verified=false; ordinary strict online flow cannot complete. No flag or credential bypass is compiled."
+  },
+  "permitted_test_scope": [
+    "installation and restoration",
+    "package and dependency checks",
+    "Toolbox login to existing services",
+    "managed startup failure observation"
+  ],
+  "distribution_kind": "portable diagnostic delta over an existing complete Rebound game runtime",
+  "publication": {
+    "updater_published": false,
+    "externally_uploaded": false
+  }
+}

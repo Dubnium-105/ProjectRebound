@@ -1,0 +1,362 @@
+Deployment and workflow configuration	Test CI artifact and source deployment modes	﻿2026-09-08T03:07:15.0329612Z ##[group]Run Backend/scripts/test-deploy-source.sh
+Deployment and workflow configuration	Test CI artifact and source deployment modes	2026-09-08T03:07:15.0330014Z ^[[36;1mBackend/scripts/test-deploy-source.sh^[[0m
+Deployment and workflow configuration	Test CI artifact and source deployment modes	2026-09-08T03:07:15.0363696Z shell: /usr/bin/bash -e {0}
+Deployment and workflow configuration	Test CI artifact and source deployment modes	2026-09-08T03:07:15.0363943Z env:
+Deployment and workflow configuration	Test CI artifact and source deployment modes	2026-09-08T03:07:15.0364128Z   GOTOOLCHAIN: local
+Deployment and workflow configuration	Test CI artifact and source deployment modes	2026-09-08T03:07:15.0364348Z ##[endgroup]
+Deployment and workflow configuration	Test CI artifact and source deployment modes	2026-09-08T03:07:15.4106972Z ##[error]Process completed with exit code 1.
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	﻿2026-09-08T03:07:17.1908209Z ##[group]Run set -o pipefail
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.1908552Z ^[[36;1mset -o pipefail^[[0m
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.1908885Z ^[[36;1mbash ./run-gate.sh 2>&1 | tee integration-gate.log^[[0m
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.1944959Z shell: /usr/bin/bash -e {0}
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.1945233Z env:
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.1945438Z   GOTOOLCHAIN: local
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.1945736Z   V11_INTEGRATION_I_UNDERSTAND: disposable-docker-stack
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.1946117Z   TESTCONTAINERS_RYUK_DISABLED: true
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.1946408Z ##[endgroup]
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.2119476Z go: downloading github.com/testcontainers/testcontainers-go/modules/compose v0.42.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.2120968Z go: downloading github.com/testcontainers/testcontainers-go v0.42.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.5012404Z go: downloading github.com/moby/moby/api v1.54.1
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.5017320Z go: downloading github.com/containerd/errdefs v1.0.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.5421403Z go: downloading github.com/moby/moby/client v0.4.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.6047001Z go: downloading github.com/compose-spec/compose-go/v2 v2.10.2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.6598041Z go: downloading github.com/docker/cli v29.4.0+incompatible
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.7017668Z go: downloading github.com/docker/compose/v5 v5.1.2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.8855344Z go: downloading github.com/google/uuid v1.6.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.8857521Z go: downloading go.yaml.in/yaml/v3 v3.0.4
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.8973300Z go: downloading golang.org/x/sync v0.21.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9010075Z go: downloading github.com/containerd/errdefs/pkg v0.3.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9010910Z go: downloading github.com/distribution/reference v0.6.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9126848Z go: downloading github.com/docker/go-connections v0.6.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9259009Z go: downloading github.com/opencontainers/go-digest v1.0.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9372476Z go: downloading github.com/opencontainers/image-spec v1.1.1
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9384813Z go: downloading go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9386117Z go: downloading go.opentelemetry.io/otel/trace v1.43.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9453161Z go: downloading github.com/docker/go-units v0.5.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9531581Z go: downloading github.com/moby/docker-image-spec v1.3.1
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9537644Z go: downloading go.opentelemetry.io/otel v1.43.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9567713Z go: downloading github.com/sirupsen/logrus v1.9.4
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9652562Z go: downloading go.yaml.in/yaml/v4 v4.0.0-rc.4
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9676208Z go: downloading github.com/go-viper/mapstructure/v2 v2.5.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9821179Z go: downloading github.com/mattn/go-shellwords v1.0.12
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9919564Z go: downloading github.com/xhit/go-str2duration/v2 v2.1.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:17.9943220Z go: downloading github.com/containerd/platforms v1.0.0-rc.4
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.0093550Z go: downloading github.com/hashicorp/go-version v1.9.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.0173563Z go: downloading github.com/DefangLabs/secret-detector v0.0.0-20250403165618-22662109213e
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.0247656Z go: downloading github.com/containerd/console v1.0.5
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.0463740Z go: downloading github.com/docker/buildx v0.33.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.0465956Z go: downloading github.com/eiannone/keyboard v0.0.0-20220611211555-0d226195f203
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.0596103Z go: downloading github.com/jonboulle/clockwork v0.5.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.0678376Z go: downloading github.com/moby/buildkit v0.29.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.3242079Z go: downloading github.com/moby/go-archive v0.2.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.3461850Z go: downloading github.com/moby/sys/atomicwriter v0.1.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.3567859Z go: downloading github.com/spf13/cobra v1.10.2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.3763713Z go: downloading tags.cncf.io/container-device-interface v1.1.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.3765216Z go: downloading dario.cat/mergo v1.0.2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.3767146Z go: downloading github.com/cenkalti/backoff/v4 v4.3.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.3833158Z go: downloading github.com/cpuguy83/dockercfg v0.3.2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.4127490Z go: downloading github.com/moby/patternmatcher v0.6.1
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.4173398Z go: downloading github.com/stretchr/testify v1.11.1
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.4174521Z go: downloading golang.org/x/crypto v0.53.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.4181698Z go: downloading github.com/moby/term v0.5.2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.4290808Z go: downloading github.com/morikuni/aec v1.1.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.4325131Z go: downloading go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.42.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.4450303Z go: downloading go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.42.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.4480338Z go: downloading go.opentelemetry.io/otel/metric v1.43.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.4553227Z go: downloading go.opentelemetry.io/otel/sdk v1.43.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.4632490Z go: downloading go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.43.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.4674952Z go: downloading go.opentelemetry.io/otel/sdk/metric v1.43.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.4902716Z go: downloading github.com/spf13/pflag v1.0.10
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.5020233Z go: downloading github.com/felixge/httpsnoop v1.0.4
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.5021443Z go: downloading golang.org/x/sys v0.46.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.5124506Z go: downloading github.com/containerd/log v0.1.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.5166136Z go: downloading github.com/hashicorp/go-multierror v1.1.1
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.5280517Z go: downloading github.com/inhies/go-bytesize v0.0.0-20220417184213-4913239db9cf
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.5307787Z go: downloading gopkg.in/yaml.v3 v3.0.1
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.5456748Z go: downloading github.com/fvbommel/sortorder v1.1.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.5546217Z go: downloading github.com/moby/sys/capability v0.4.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.5633725Z go: downloading github.com/moby/sys/signal v0.7.1
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.5741038Z go: downloading github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.5767735Z go: downloading github.com/buger/goterm v1.0.4
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.5823950Z go: downloading github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.5870477Z go: downloading github.com/containerd/containerd/v2 v2.2.2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.9169294Z go: downloading google.golang.org/grpc v1.80.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.9171153Z go: downloading gotest.tools/v3 v3.5.2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.9200299Z go: downloading github.com/tilt-dev/fsnotify v1.4.8-0.20220602155310-fff9c274a375
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.9329976Z go: downloading github.com/pkg/errors v0.9.1
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.9451135Z go: downloading github.com/moby/sys/sequential v0.6.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.9486218Z go: downloading github.com/moby/sys/user v0.4.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.9730719Z go: downloading github.com/moby/sys/userns v0.1.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.9895403Z go: downloading golang.org/x/time v0.14.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:18.9980965Z go: downloading github.com/containerd/containerd/api v1.10.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.0012336Z go: downloading github.com/tonistiigi/fsutil v0.0.0-20251211185533-a2aa163d723f
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.0293313Z go: downloading go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.2155693Z go: downloading google.golang.org/protobuf v1.36.11
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.2156772Z go: downloading github.com/tonistiigi/go-csvvalue v0.0.0-20240814133006-030d3b2625d0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.2157682Z go: downloading github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.2158282Z go: downloading github.com/tonistiigi/vt100 v0.0.0-20240514184818-90bafcd6abab
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.2274288Z go: downloading github.com/go-logr/logr v1.4.3
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.2293688Z go: downloading github.com/magiconair/properties v1.8.10
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.2305922Z go: downloading github.com/shirou/gopsutil/v4 v4.26.3
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.2589053Z go: downloading github.com/docker/docker-credential-helpers v0.9.5
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.2751164Z go: downloading github.com/mattn/go-runewidth v0.0.16
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.2918373Z go: downloading go.opentelemetry.io/proto/otlp v1.10.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.3049708Z go: downloading google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.3078795Z go: downloading github.com/santhosh-tekuri/jsonschema/v6 v6.0.1
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.3152176Z go: downloading golang.org/x/text v0.38.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.3330164Z go: downloading github.com/golang-jwt/jwt/v5 v5.3.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.3593293Z go: downloading gopkg.in/ini.v1 v1.67.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.3759245Z go: downloading github.com/hashicorp/errwrap v1.1.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.4795271Z go: downloading github.com/moby/sys/symlink v0.3.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.4901474Z go: downloading github.com/klauspost/compress v1.18.5
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.7559651Z go: downloading github.com/in-toto/in-toto-golang v0.10.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.7560433Z go: downloading github.com/moby/locker v1.0.1
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.7561042Z go: downloading go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.43.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.7718382Z go: downloading go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.43.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.7875617Z go: downloading github.com/containerd/typeurl/v2 v2.2.3
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.7958630Z go: downloading github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.8050582Z go: downloading github.com/docker/docker v28.5.2+incompatible
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.8090075Z go: downloading github.com/gofrs/flock v0.13.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.8193232Z go: downloading github.com/pelletier/go-toml/v2 v2.2.4
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.8348252Z go: downloading github.com/golang/protobuf v1.5.4
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.8621531Z go: downloading github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.9053617Z go: downloading golang.org/x/net v0.56.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.9055004Z go: downloading go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.63.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.9207506Z go: downloading github.com/containerd/continuity v0.4.5
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:19.9579995Z go: downloading github.com/containerd/ttrpc v1.2.8
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.1672835Z go: downloading go.opentelemetry.io/auto/sdk v1.2.1
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.1673701Z go: downloading github.com/go-logr/stdr v1.2.2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.1767487Z go: downloading github.com/cespare/xxhash/v2 v2.3.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.1883333Z go: downloading github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.1893285Z go: downloading github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.1991115Z go: downloading github.com/cenkalti/backoff/v5 v5.0.3
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.2058935Z go: downloading github.com/rivo/uniseg v0.4.7
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.2223811Z go: downloading github.com/tklauser/go-sysconf v0.3.16
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.2443449Z go: downloading github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.3940820Z go: downloading github.com/mitchellh/hashstructure/v2 v2.0.2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.3942009Z go: downloading github.com/gogo/protobuf v1.3.2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.4063489Z go: downloading github.com/hashicorp/go-cleanhttp v0.5.2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.4144127Z go: downloading github.com/in-toto/attestation v1.1.2
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.4873254Z go: downloading github.com/secure-systems-lab/go-securesystemslib v0.10.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.5073287Z go: downloading github.com/shibumi/go-pathspec v1.3.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.5175670Z go: downloading github.com/tonistiigi/dchapes-mode v0.0.0-20250318174251-73d941a28323
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.5283362Z go: downloading github.com/sigstore/sigstore-go v1.1.4
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.6097634Z go: downloading github.com/google/go-cmp v0.7.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.6466473Z go: downloading github.com/tklauser/numcpus v0.11.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.6513405Z go: downloading google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.6693271Z go: downloading github.com/sigstore/sigstore v1.10.4
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:07:20.7053969Z go: downloading golang.org/x/term v0.44.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:08:08.3485879Z === RUN   TestV11ControlPlaneAndTwoRelays
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:08:08.3781419Z 2026/09/08 03:08:08 github.com/testcontainers/testcontainers-go - Connected to docker: 
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:08:08.3782947Z   Server Version: 28.0.4
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:08:08.3783435Z   API Version: 1.48
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:08:08.3783910Z   Operating System: Ubuntu 24.04.4 LTS
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:08:08.3784439Z   Total Memory: 15989 MB
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:08:08.3784938Z   Testcontainers for Go Version: v0.42.0
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:08:08.3785591Z   Resolved Docker Host: unix:///var/run/docker.sock
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:08:08.3786292Z   Resolved Docker Socket Path: /var/run/docker.sock
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:08:08.3787244Z   Test SessionID: 49abfac24e2899ab39e3c8ff5983bb0c7d4e7bafe0e946d7e3f260605a1ed735
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:08:08.3787883Z   Test ProcessID: 8fbbd7a2-2a4d-43f6-b80b-f00b4d422d8a
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8743903Z     v11_stack_test.go:111: start integration stack: compose up: dependency failed to start: container project-rebound-v11-4c284ef6-control-plane-1 exited (1)
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8745398Z         compose diagnostics:
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8750631Z         redis-1          | 2026-09-08T03:09:28.235943509Z 1:C 08 Sep 2026 03:09:28.235 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8755110Z         redis-1          | 2026-09-08T03:09:28.236067529Z 1:C 08 Sep 2026 03:09:28.235 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8757274Z         redis-1          | 2026-09-08T03:09:28.236074742Z 1:C 08 Sep 2026 03:09:28.236 * Redis version=7.4.11, bits=64, commit=00000000, modified=0, pid=1, just started
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8758670Z         redis-1          | 2026-09-08T03:09:28.236079080Z 1:C 08 Sep 2026 03:09:28.236 * Configuration loaded
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8760256Z         redis-1          | 2026-09-08T03:09:28.236430267Z 1:M 08 Sep 2026 03:09:28.236 * monotonic clock: POSIX clock_gettime
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8761756Z         redis-1          | 2026-09-08T03:09:28.236885227Z 1:M 08 Sep 2026 03:09:28.236 * Running mode=standalone, port=6379.
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8763474Z         redis-1          | 2026-09-08T03:09:28.237255980Z 1:M 08 Sep 2026 03:09:28.237 * Server initialized
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8764533Z         redis-1          | 2026-09-08T03:09:28.237945251Z 1:M 08 Sep 2026 03:09:28.237 * Creating AOF base file appendonly.aof.1.base.rdb on server start
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8765677Z         redis-1          | 2026-09-08T03:09:28.238644967Z 1:M 08 Sep 2026 03:09:28.238 * Creating AOF incr file appendonly.aof.1.incr.aof on server start
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8766926Z         redis-1          | 2026-09-08T03:09:28.238657240Z 1:M 08 Sep 2026 03:09:28.238 * Ready to accept connections tcp
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8769214Z         control-plane-1  | 2026-09-08T03:09:31.280728052Z {"time":"2026-09-08T03:09:31.280511228Z","level":"ERROR","msg":"initialize control-plane","error":"invalid control-plane configuration: strict authoritative online mode requires MATCH_ADMISSION_PRIVATE_KEY_BASE64 in every environment"}
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8771018Z         postgres-1       | 2026-09-08T03:09:28.292142229Z The files belonging to this database system will be owned by user "postgres".
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8772059Z         postgres-1       | 2026-09-08T03:09:28.292180019Z This user must also own the server process.
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8773406Z         postgres-1       | 2026-09-08T03:09:28.292183426Z 
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8774394Z         postgres-1       | 2026-09-08T03:09:28.293167546Z The database cluster will be initialized with locale "en_US.utf8".
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8775550Z         postgres-1       | 2026-09-08T03:09:28.293178476Z The default database encoding has accordingly been set to "UTF8".
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8776710Z         postgres-1       | 2026-09-08T03:09:28.293183135Z The default text search configuration will be set to "english".
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8777843Z         postgres-1       | 2026-09-08T03:09:28.293187153Z 
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8778524Z         postgres-1       | 2026-09-08T03:09:28.293190769Z Data page checksums are disabled.
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8779216Z         postgres-1       | 2026-09-08T03:09:28.293194286Z 
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8780461Z         postgres-1       | 2026-09-08T03:09:28.293197762Z fixing permissions on existing directory /var/lib/postgresql/data ... ok
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8781294Z         postgres-1       | 2026-09-08T03:09:28.293201529Z creating subdirectories ... ok
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8782529Z         postgres-1       | 2026-09-08T03:09:28.293204866Z selecting dynamic shared memory implementation ... posix
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8784087Z         postgres-1       | 2026-09-08T03:09:28.307185333Z selecting default "max_connections" ... 100
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8785602Z         postgres-1       | 2026-09-08T03:09:28.326460368Z selecting default "shared_buffers" ... 128MB
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8786382Z         postgres-1       | 2026-09-08T03:09:28.370949042Z selecting default time zone ... UTC
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8787108Z         postgres-1       | 2026-09-08T03:09:28.371876967Z creating configuration files ... ok
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8787906Z         postgres-1       | 2026-09-08T03:09:28.503089255Z running bootstrap script ... ok
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8789070Z         postgres-1       | 2026-09-08T03:09:28.717021611Z sh: locale: not found
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8790717Z         postgres-1       | 2026-09-08T03:09:28.717324527Z 2026-09-08 03:09:28.717 UTC [37] WARNING:  no usable system locales were found
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8792507Z         postgres-1       | 2026-09-08T03:09:29.192344981Z performing post-bootstrap initialization ... ok
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8793799Z         postgres-1       | 2026-09-08T03:09:29.242212106Z syncing data to disk ... ok
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8794745Z         postgres-1       | 2026-09-08T03:09:29.242268241Z 
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8795552Z         postgres-1       | 2026-09-08T03:09:29.242275695Z 
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8796865Z         postgres-1       | 2026-09-08T03:09:29.242279141Z Success. You can now start the database server using:
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8798188Z         postgres-1       | 2026-09-08T03:09:29.242282498Z 
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8799489Z         postgres-1       | 2026-09-08T03:09:29.242285513Z     pg_ctl -D /var/lib/postgresql/data -l logfile start
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8800596Z         postgres-1       | 2026-09-08T03:09:29.242288689Z 
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8802060Z         postgres-1       | 2026-09-08T03:09:29.242253048Z initdb: warning: enabling "trust" authentication for local connections
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8804950Z         postgres-1       | 2026-09-08T03:09:29.242296324Z initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8808144Z         postgres-1       | 2026-09-08T03:09:29.280532668Z waiting for server to start....2026-09-08 03:09:29.280 UTC [43] LOG:  starting PostgreSQL 17.11 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8810883Z         postgres-1       | 2026-09-08T03:09:29.281098817Z 2026-09-08 03:09:29.281 UTC [43] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8813355Z         postgres-1       | 2026-09-08T03:09:29.284042904Z 2026-09-08 03:09:29.283 UTC [46] LOG:  database system was shut down at 2026-09-08 03:09:29 UTC
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8815365Z         postgres-1       | 2026-09-08T03:09:29.288198187Z 2026-09-08 03:09:29.288 UTC [43] LOG:  database system is ready to accept connections
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8816657Z         postgres-1       | 2026-09-08T03:09:29.362824378Z  done
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8817608Z         postgres-1       | 2026-09-08T03:09:29.362851940Z server started
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8818633Z         postgres-1       | 2026-09-08T03:09:29.427451640Z CREATE DATABASE
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8819483Z         postgres-1       | 2026-09-08T03:09:29.427947016Z 
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8820269Z         postgres-1       | 2026-09-08T03:09:29.428046252Z 
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8822065Z         postgres-1       | 2026-09-08T03:09:29.428112416Z /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8823612Z         postgres-1       | 2026-09-08T03:09:29.428118657Z 
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8825353Z         postgres-1       | 2026-09-08T03:09:29.428968526Z waiting for server to shut down....2026-09-08 03:09:29.428 UTC [43] LOG:  received fast shutdown request
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8827337Z         postgres-1       | 2026-09-08T03:09:29.429683943Z 2026-09-08 03:09:29.429 UTC [43] LOG:  aborting any active transactions
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8829595Z         postgres-1       | 2026-09-08T03:09:29.433969569Z 2026-09-08 03:09:29.433 UTC [43] LOG:  background worker "logical replication launcher" (PID 49) exited with exit code 1
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8831525Z         postgres-1       | 2026-09-08T03:09:29.434086214Z 2026-09-08 03:09:29.434 UTC [44] LOG:  shutting down
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8833237Z         postgres-1       | 2026-09-08T03:09:29.434460248Z 2026-09-08 03:09:29.434 UTC [44] LOG:  checkpoint starting: shutdown immediate
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8836114Z         postgres-1       | 2026-09-08T03:09:29.451263465Z 2026-09-08 03:09:29.451 UTC [44] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.012 s, sync=0.004 s, total=0.018 s; sync files=301, longest=0.003 s, average=0.001 s; distance=4266 kB, estimate=4266 kB; lsn=0/191E820, redo lsn=0/191E820
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8839134Z         postgres-1       | 2026-09-08T03:09:29.458345613Z 2026-09-08 03:09:29.458 UTC [43] LOG:  database system is shut down
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8840412Z         postgres-1       | 2026-09-08T03:09:29.529121041Z  done
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8841363Z         postgres-1       | 2026-09-08T03:09:29.529135838Z server stopped
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8842254Z         postgres-1       | 2026-09-08T03:09:29.530031132Z 
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8843511Z         postgres-1       | 2026-09-08T03:09:29.530042373Z PostgreSQL init process complete; ready for start up.
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8844491Z         postgres-1       | 2026-09-08T03:09:29.530045219Z 
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8845696Z         postgres-1       | 2026-09-08T03:09:29.549080827Z 2026-09-08 03:09:29.548 UTC [1] LOG:  starting PostgreSQL 17.11 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8846963Z         postgres-1       | 2026-09-08T03:09:29.549128095Z 2026-09-08 03:09:29.549 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8848680Z         postgres-1       | 2026-09-08T03:09:29.549138375Z 2026-09-08 03:09:29.549 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8850406Z         postgres-1       | 2026-09-08T03:09:29.550046653Z 2026-09-08 03:09:29.549 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8851829Z         postgres-1       | 2026-09-08T03:09:29.554282885Z 2026-09-08 03:09:29.553 UTC [59] LOG:  database system was shut down at 2026-09-08 03:09:29 UTC
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:31.8853695Z         postgres-1       | 2026-09-08T03:09:29.558280416Z 2026-09-08 03:09:29.558 UTC [1] LOG:  database system is ready to accept connections
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:32.1370996Z --- FAIL: TestV11ControlPlaneAndTwoRelays (83.79s)
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:32.1371697Z FAIL
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:32.1384743Z FAIL	github.com/Dubnium-105/ProjectRebound/Backend/tests/integration	83.812s
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:32.1418004Z FAIL
+V1.1 disposable control plane and two-Relay integration	Run real auth, room, WebSocket and Relay UDP flow	2026-09-08T03:09:32.3761251Z ##[error]Process completed with exit code 1.
+C++ command protocol	Build protocol tests with warnings as errors	﻿2026-09-08T03:06:58.4194409Z ##[group]Run cmake --build build/command-protocol --parallel
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4194917Z ^[[36;1mcmake --build build/command-protocol --parallel^[[0m
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4236006Z shell: /usr/bin/bash -e {0}
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4236282Z ##[endgroup]
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4544028Z [  2%] Building CXX object CMakeFiles/strict_roster_policy_tests.dir/StrictRosterPolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4589278Z [  4%] Building CXX object CMakeFiles/command_protocol_tests.dir/CommandProtocolTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4613332Z [  6%] Building CXX object CMakeFiles/command_line_policy_tests.dir/CommandLinePolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4679536Z [  9%] Building CXX object CMakeFiles/strict_authority_start_dispatch_tests.dir/StrictAuthorityStartDispatchTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4683859Z [ 11%] Building CXX object CMakeFiles/command_protocol_tests.dir/home/runner/work/ProjectRebound/ProjectRebound/Payload/Communication/CommandProtocol.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4685911Z [ 13%] Building CXX object CMakeFiles/strict_authority_lease_tests.dir/StrictAuthorityLeaseTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4689594Z [ 18%] Building CXX object CMakeFiles/native_match_scope_tests.dir/NativeMatchScopeTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4691098Z [ 18%] Building CXX object CMakeFiles/strict_roster_cleanup_receipt_tests.dir/StrictRosterCleanupReceiptTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4692557Z [ 20%] Building CXX object CMakeFiles/native_login_grant_policy_tests.dir/NativeLoginGrantPolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4942238Z [ 25%] Building CXX object CMakeFiles/loadout_state_policy_tests.dir/LoadoutStatePolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.4977021Z [ 23%] Building CXX object CMakeFiles/server_hook_policy_tests.dir/ServerHookPolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.5020630Z [ 30%] Building CXX object CMakeFiles/managed_possession_sync_policy_tests.dir/ManagedPossessionSyncPolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.5133405Z [ 30%] Building CXX object CMakeFiles/unreal_container_tests.dir/UnrealContainerTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.5161070Z [ 32%] Building CXX object CMakeFiles/local_qos_discovery_policy_tests.dir/LocalQosDiscoveryPolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.5283542Z [ 34%] Building CXX object CMakeFiles/respawn_state_policy_tests.dir/RespawnStatePolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.5375304Z [ 37%] Building CXX object CMakeFiles/seamless_intro_camera_policy_tests.dir/SeamlessIntroCameraPolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.5445268Z [ 41%] Building CXX object CMakeFiles/replication_world_gate_policy_tests.dir/ReplicationWorldGatePolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.5460320Z [ 44%] Building CXX object CMakeFiles/weapon_archive_policy_tests.dir/WeaponArchivePolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.5529582Z [ 46%] Building CXX object CMakeFiles/archive_completion_policy_tests.dir/ArchiveCompletionPolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.5559808Z [ 39%] Building CXX object CMakeFiles/join_ui_sync_policy_tests.dir/JoinUiSyncPolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.5582719Z [ 48%] Building CXX object CMakeFiles/dedicated_multi_match_policy_tests.dir/DedicatedMultiMatchPolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:06:58.5585463Z [ 51%] Building CXX object CMakeFiles/direct_match_ui_cleanup_policy_tests.dir/DirectMatchUiCleanupPolicyTests.cpp.o
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:00.8463370Z In file included from /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/NativeLoginGrantPolicyTests.cpp:1:
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:00.8528435Z /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/../ClientLogic/NativeLoginGrantPolicy.h: In function ‘bool NativeLoginGrantPolicy::ExtractNativeCredentialOption(std::wstring_view, std::wstring_view, std::size_t, bool, std::string&)’:
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:00.8621274Z /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/../ClientLogic/NativeLoginGrantPolicy.h:203:39: error: comparison of integer expressions of different signedness: ‘const wchar_t’ and ‘unsigned int’ [-Werror=sign-compare]
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:00.8759597Z   203 |                         if (character > 0x7FU || (!(allowJwtSeparators && character == L'.') &&
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:00.8859203Z       |                             ~~~~~~~~~~^~~~~~~
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:01.0100239Z [ 53%] Linking CXX executable replication_world_gate_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:01.3749693Z [ 55%] Linking CXX executable respawn_state_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:01.3999769Z [ 58%] Linking CXX executable join_ui_sync_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:01.4239244Z [ 60%] Linking CXX executable server_hook_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:01.4482157Z [ 62%] Linking CXX executable managed_possession_sync_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:01.5109246Z [ 65%] Linking CXX executable weapon_archive_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:01.5539747Z [ 67%] Linking CXX executable archive_completion_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:01.6609313Z [ 69%] Linking CXX executable seamless_intro_camera_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:01.6942734Z [ 69%] Built target replication_world_gate_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:02.0218844Z [ 72%] Linking CXX executable unreal_container_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:02.0529569Z [ 72%] Built target respawn_state_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:02.1416441Z [ 72%] Built target weapon_archive_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:02.1479245Z [ 72%] Built target managed_possession_sync_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:02.1570791Z [ 72%] Built target join_ui_sync_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:02.1689268Z [ 72%] Built target server_hook_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:02.2282521Z [ 74%] Linking CXX executable direct_match_ui_cleanup_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:02.2809439Z [ 74%] Built target archive_completion_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:02.3449247Z [ 74%] Built target seamless_intro_camera_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:02.4349256Z [ 74%] Built target unreal_container_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:02.5659326Z [ 76%] Linking CXX executable strict_roster_cleanup_receipt_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:02.6809272Z [ 76%] Built target direct_match_ui_cleanup_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:03.0599506Z [ 76%] Built target strict_roster_cleanup_receipt_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:03.2119268Z [ 79%] Linking CXX executable local_qos_discovery_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:03.4271870Z [ 81%] Linking CXX executable command_line_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:03.6289841Z [ 81%] Built target command_line_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:03.6551687Z [ 81%] Built target local_qos_discovery_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.0379215Z [ 83%] Linking CXX executable loadout_state_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.1249729Z In file included from /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/../Admission/StrictAuthorityLease.h:3,
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.1279459Z                  from /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/StrictAuthorityLeaseTests.cpp:1:
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.1310980Z /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/../Admission/StrictRosterPolicy.h: In static member function ‘static StrictRoster::Decision StrictRoster::Policy::Reject(std::string, std::string)’:
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.1350923Z /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/../Admission/StrictRosterPolicy.h:1504:63: error: missing initializer for member ‘StrictRoster::Decision::grantJti’ [-Werror=missing-field-initializers]
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.1399051Z  1504 |             return {false, std::move(code), std::move(message)};
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.1438989Z       |                                                               ^
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.3639611Z In file included from /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/StrictRosterPolicyTests.cpp:1:
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.3691022Z /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/../Admission/StrictRosterPolicy.h: In static member function ‘static StrictRoster::Decision StrictRoster::Policy::Reject(std::string, std::string)’:
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.3694419Z /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/../Admission/StrictRosterPolicy.h:1504:63: error: missing initializer for member ‘StrictRoster::Decision::grantJti’ [-Werror=missing-field-initializers]
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.3699051Z  1504 |             return {false, std::move(code), std::move(message)};
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.3758822Z       |                                                               ^
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.3939148Z [ 83%] Built target loadout_state_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.7149652Z In file included from /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/../Admission/StrictAuthorityLease.h:3,
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.7179838Z                  from /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/StrictAuthorityStartDispatchTests.cpp:2:
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.7211002Z /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/../Admission/StrictRosterPolicy.h: In static member function ‘static StrictRoster::Decision StrictRoster::Policy::Reject(std::string, std::string)’:
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.7271131Z /home/runner/work/ProjectRebound/ProjectRebound/Payload/Tests/../Admission/StrictRosterPolicy.h:1504:63: error: missing initializer for member ‘StrictRoster::Decision::grantJti’ [-Werror=missing-field-initializers]
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.7349492Z  1504 |             return {false, std::move(code), std::move(message)};
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:05.7379136Z       |                                                               ^
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:06.0939795Z [ 86%] Linking CXX executable dedicated_multi_match_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:06.3191531Z [ 86%] Built target dedicated_multi_match_policy_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:06.3429196Z cc1plus: all warnings being treated as errors
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:06.3480230Z gmake[2]: *** [CMakeFiles/native_login_grant_policy_tests.dir/build.make:79: CMakeFiles/native_login_grant_policy_tests.dir/NativeLoginGrantPolicyTests.cpp.o] Error 1
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:06.3509475Z gmake[1]: *** [CMakeFiles/Makefile2:339: CMakeFiles/native_login_grant_policy_tests.dir/all] Error 2
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:06.3519300Z gmake[1]: *** Waiting for unfinished jobs....
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:08.4269424Z cc1plus: all warnings being treated as errors
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:08.4380025Z gmake[2]: *** [CMakeFiles/strict_authority_start_dispatch_tests.dir/build.make:79: CMakeFiles/strict_authority_start_dispatch_tests.dir/StrictAuthorityStartDispatchTests.cpp.o] Error 1
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:08.4381821Z gmake[1]: *** [CMakeFiles/Makefile2:243: CMakeFiles/strict_authority_start_dispatch_tests.dir/all] Error 2
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:09.5808610Z [ 88%] Linking CXX executable native_match_scope_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:09.6679073Z [ 88%] Built target native_match_scope_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:11.4089005Z cc1plus: all warnings being treated as errors
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:11.4153450Z gmake[2]: *** [CMakeFiles/strict_authority_lease_tests.dir/build.make:79: CMakeFiles/strict_authority_lease_tests.dir/StrictAuthorityLeaseTests.cpp.o] Error 1
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:11.4155999Z gmake[1]: *** [CMakeFiles/Makefile2:275: CMakeFiles/strict_authority_lease_tests.dir/all] Error 2
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:11.5659561Z [ 90%] Linking CXX executable command_protocol_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:11.6277969Z [ 90%] Built target command_protocol_tests
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:16.4149200Z cc1plus: all warnings being treated as errors
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:16.4226318Z gmake[2]: *** [CMakeFiles/strict_roster_policy_tests.dir/build.make:79: CMakeFiles/strict_roster_policy_tests.dir/StrictRosterPolicyTests.cpp.o] Error 1
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:16.4228037Z gmake[1]: *** [CMakeFiles/Makefile2:179: CMakeFiles/strict_roster_policy_tests.dir/all] Error 2
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:16.4230821Z gmake: *** [Makefile:101: all] Error 2
+C++ command protocol	Build protocol tests with warnings as errors	2026-09-08T03:07:16.4256576Z ##[error]Process completed with exit code 2.
+Go backend and PostgreSQL	Check formatting	﻿2026-09-08T03:07:21.7620947Z ##[group]Run gofmt -l . | tee /tmp/projectrebound-gofmt.txt
+Go backend and PostgreSQL	Check formatting	2026-09-08T03:07:21.7621463Z ^[[36;1mgofmt -l . | tee /tmp/projectrebound-gofmt.txt^[[0m
+Go backend and PostgreSQL	Check formatting	2026-09-08T03:07:21.7621841Z ^[[36;1mtest ! -s /tmp/projectrebound-gofmt.txt^[[0m
+Go backend and PostgreSQL	Check formatting	2026-09-08T03:07:21.7666800Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Go backend and PostgreSQL	Check formatting	2026-09-08T03:07:21.7667170Z env:
+Go backend and PostgreSQL	Check formatting	2026-09-08T03:07:21.7667817Z   TEST_DATABASE_URL: ***127.0.0.1:5432/projectrebound_test?sslmode=disable
+Go backend and PostgreSQL	Check formatting	2026-09-08T03:07:21.7668229Z   TEST_REDIS_ADDRESS: 127.0.0.1:6379
+Go backend and PostgreSQL	Check formatting	2026-09-08T03:07:21.7668492Z   GOTOOLCHAIN: local
+Go backend and PostgreSQL	Check formatting	2026-09-08T03:07:21.7668718Z ##[endgroup]
+Go backend and PostgreSQL	Check formatting	2026-09-08T03:07:21.9280402Z internal/matchlobby/owned_process_cleanup_test.go
+Go backend and PostgreSQL	Check formatting	2026-09-08T03:07:21.9308381Z internal/update/service_test.go
+Go backend and PostgreSQL	Check formatting	2026-09-08T03:07:21.9336143Z ##[error]Process completed with exit code 1.
+Independent administrator web	Audit all administrator web dependencies	﻿2026-09-08T03:07:07.1835040Z ##[group]Run npm audit
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.1835528Z ^[[36;1mnpm audit^[[0m
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.1863762Z shell: /usr/bin/bash -e {0}
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.1864159Z ##[endgroup]
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6909819Z # npm audit report
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6910359Z 
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6910645Z qs  2.2.5 - 6.15.3
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6911087Z Severity: moderate
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6912255Z qs array-limit bypass via bracket-key comma parsing - https://github.com/advisories/GHSA-x5fp-wj9c-mxmx
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6913528Z qs: Denial of Service via Attacker Controlled isBuffer - https://github.com/advisories/GHSA-4mjr-xmp4-gh2g
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6914351Z fix available via `npm audit fix`
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6914891Z node_modules/qs
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6915077Z 
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6915338Z 1 moderate severity vulnerability
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6915588Z 
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6915854Z To address all issues, run:
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6916309Z   npm audit fix
+Independent administrator web	Audit all administrator web dependencies	2026-09-08T03:07:07.6975929Z ##[error]Process completed with exit code 1.

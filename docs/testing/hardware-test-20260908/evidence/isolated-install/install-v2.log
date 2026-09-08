@@ -1,0 +1,20 @@
+{
+    "schema_version":  1,
+    "operation":  "install",
+    "status":  "completed",
+    "game_win64":  "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\isolated-install\\Boundary\\ProjectBoundary\\Binaries\\Win64",
+    "game_executable_sha256":  "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "candidate_payload_sha256":  "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53",
+    "installed_payload_sha256":  "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53",
+    "previous_payload_sha256":  "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+    "backup_path":  "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\isolated-install\\backup\\20260908T031912006Z-5d554d92fb7546c2bebf7c7394194ac7\\Payload.dll.before-install",
+    "backup_sha256":  "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+    "toolbox_path":  "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\portable\\rebound_toolbox_tauri.exe",
+    "toolbox_sha256":  "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75",
+    "toolbox_winverifytrust_hresult":  -2146762487,
+    "toolbox_signer_thumbprint":  "B041917B2322ED509435B72356BA5AD9EA053378",
+    "payload_winverifytrust_hresult":  -2146762487,
+    "payload_signer_thumbprint":  "B041917B2322ED509435B72356BA5AD9EA053378",
+    "steam_api64_sha256":  "a44e5537939ae4eebc69000589aa9b2437a667813a1657cc779198bae9b815a9",
+    "completed_at":  "2026-09-08T03:19:12.4995456Z"
+}

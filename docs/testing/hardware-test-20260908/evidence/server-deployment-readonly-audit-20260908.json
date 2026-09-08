@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "purpose": "read-only deployment target audit",
+  "recorded_at": "2026-09-08T02:48:29.5782497Z",
+  "repo": "Dubnium-105/ProjectRebound",
+  "local_head": "9e8137c7afeeee0e81f30038ebdc2ff8a577f3cd",
+  "local_worktree": "product source unchanged; existing unrelated untracked evidence remains",
+  "candidate_binary_source_commit": "1fbc032665497502252f6245f3f1427d13314566",
+  "candidate_binary_build_receipt": ".tmp/strict-roster-20260907/artifacts/backend-1fbc03266549-20260908T010111Z/build-receipt.json",
+  "candidate_binary_build_receipt_sha256": "31e6085c0627fd5d12613842ff9539dbf1ed9df89b908b3e247fe5b8b6c21a48",
+  "deployment_entrypoint": ".github/workflows/deploy.yml -> Backend/scripts/deploy-over-ssh.sh -> remote-deploy.sh -> deploy-control-plane.sh/deploy-meta-server.sh/deploy-edge-relay.sh",
+  "release_transport": "immutable GHCR sha-40 image only",
+  "remote_probe": {
+    "host": "192.168.1.2",
+    "ssh_user": "pp105",
+    "ssh_read_only": true,
+    "exit_code": 0,
+    "log_path": "C:/wksp/ProjectRebound/.tmp/distribution-test-20260908/server-deployment-readonly-probe-20260908T024614Z.log",
+    "log_sha256": "8e4ed763b92a315eb035e0876574ce2c59be0c51450cc81e22d23215e1f7f92e",
+    "observed_host": "MS-H311M",
+    "kernel": "Linux 6.12.95+deb13-amd64 x86_64",
+    "docker_server": "26.1.5+dfsg1",
+    "control_plane": "running healthy; image project-rebound/control-plane:game-server-pki-20260802",
+    "meta_server": "restarting; exit 1; unhealthy; image project-rebound/meta-server:loadout-native-20260805-fe5065a38a14",
+    "postgres": "running healthy",
+    "redis": "running healthy",
+    "compose_workdir": "/mnt/sda1/project-rebound/compose",
+    "compose_files": "/mnt/sda1/project-rebound/compose/docker-compose.yaml,/mnt/sda1/project-rebound/compose/docker-compose.meta.yaml",
+    "new_release_layout_present": false,
+    "legacy_registration_env_observed": true
+  },
+  "github_targets": [
+    {
+      "environment": "production-control-plane",
+      "host": "107.182.184.53",
+      "user": "projectrebound-deploy",
+      "root": "/opt/projectrebound-deploy",
+      "env_file": "/opt/projectrebound-deploy/shared/control-plane.env",
+      "compose_override": "/opt/projectrebound-deploy/shared/docker-compose.production.yaml",
+      "public_base_url": "https://api.project-rebound.space"
+    },
+    {
+      "environment": "production-meta-server",
+      "host": "107.182.184.53",
+      "user": "projectrebound-deploy",
+      "root": "/opt/projectrebound-deploy",
+      "env_file": "/opt/projectrebound-deploy/shared/control-plane.env",
+      "compose_override": "/opt/projectrebound-deploy/shared/docker-compose.production.yaml",
+      "public_base_url": "https://meta.project-rebound.space"
+    },
+    {
+      "environment": "production-edge-relay-gateway",
+      "host": "107.172.187.202",
+      "user": "projectrebound-deploy",
+      "root": "/opt/projectrebound-edge",
+      "env_file": "/opt/projectrebound-edge/shared/edge-relay.env",
+      "config_file": "/opt/projectrebound-edge/shared/config.edge-relay.yaml"
+    },
+    {
+      "environment": "production-edge-relay-hgh",
+      "host": "106.15.229.82",
+      "user": "projectrebound-deploy",
+      "root": "/opt/projectrebound-edge",
+      "env_file": "/opt/projectrebound-edge/shared/edge-relay.env",
+      "config_file": "/opt/projectrebound-edge/shared/config.edge-relay.yaml"
+    },
+    {
+      "environment": "production-edge-relay-primary",
+      "host": "107.182.184.53",
+      "user": "projectrebound-deploy",
+      "root": "/opt/projectrebound-deploy",
+      "env_file": "/opt/projectrebound-deploy/shared/edge-primary.env",
+      "config_file": "/opt/projectrebound-deploy/shared/config.edge-primary.yaml"
+    }
+  ],
+  "remote_compose_sha256": {
+    "control_plane": "9627063b2e58fffd29755bad2d24ba95075702f23e13e9b408f1e0c5652f213d",
+    "meta": "4e3e176067ba45261b7027217cabb76a04524f294f214d177f17e0b56c066d8b"
+  },
+  "source_files": [
+    {
+      "path": ".github/workflows/deploy.yml",
+      "bytes": 10253,
+      "sha256": "753e06b3253004d2407eedb5767b38467959dfb3f3f59f2c91f02e48361b9878"
+    },
+    {
+      "path": "Backend/scripts/deploy-over-ssh.sh",
+      "bytes": 4134,
+      "sha256": "eade7af3a24f9041adccba3e48552ae7ca00086e7e251ac38d3731b31c69ce96"
+    },
+    {
+      "path": "Backend/scripts/remote-deploy.sh",
+      "bytes": 5696,
+      "sha256": "86a4f1a907bdb564a91c055eea09f098f88f5a79b150e71949cce77c4e612304"
+    },
+    {
+      "path": "Backend/scripts/deploy-control-plane.sh",
+      "bytes": 5646,
+      "sha256": "b2135aa975a41718e9232c126f8a1fd88d27b80cc00eaf93be461033996aae05"
+    },
+    {
+      "path": "Backend/scripts/deploy-meta-server.sh",
+      "bytes": 2862,
+      "sha256": "9272da9a6f3fbb222634169b5a545c10eb9efe027cc31fc496320ce5e91a34a1"
+    },
+    {
+      "path": "Backend/scripts/deploy-edge-relay.sh",
+      "bytes": 6479,
+      "sha256": "f6627925f65298b57ddc0f81e0150014ff91437282b12c6b5508414f03ed3be0"
+    },
+    {
+      "path": "Backend/deployments/control-plane/docker-compose.yaml",
+      "bytes": 22297,
+      "sha256": "c25c62ede21f7f602db02f16b13bd06bc64ffe86a8b0de08795e280082337917"
+    },
+    {
+      "path": "Backend/deployments/control-plane/toolbox-signer.pem",
+      "bytes": 1137,
+      "sha256": "75fa5daa280eeb3b01184ceb04a2b02a3459196911383cf077272163826ae967"
+    }
+  ],
+  "changes": [],
+  "blockers": [
+    "No package or serverkit created per latest instruction.",
+    "No deployment performed: active remote service requires explicit target/change coordination.",
+    "Current public target has no current candidate GHCR image recorded in the available successful CI run list; latest successful CI head observed was 213d5f967d0df26e8110842958a52be5d96908d.",
+    "The 192.168.1.2 MetaServer is already unhealthy/restarting on an older image and must not be treated as candidate acceptance."
+  ],
+  "safety": {
+    "modified_remote": false,
+    "printed_tokens": false,
+    "deployed": false,
+    "printed_private_keys": false,
+    "modified_product_source": false,
+    "read_existing_secret_values": false
+  }
+}

@@ -1,0 +1,29 @@
+        Warn --no-sign flag detected: Signing will be skipped.
+        Info Looking up installed tauri packages to check mismatched versions...
+     Running beforeBuildCommand `npm run build`
+
+> frontend@0.9.12 build
+> vite build && node scripts/prepare-sites-build.mjs
+
+vite v6.4.2 building for production...
+transforming...
+✓ 48 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/client/index.html                   0.47 kB │ gzip:  0.31 kB
+dist/client/assets/index-CjG9VKZl.css   34.78 kB │ gzip:  6.74 kB
+dist/client/assets/index-Dt4o0rIE.js   318.12 kB │ gzip: 97.78 kB
+✓ built in 1.21s
+Prepared Sites build: dist/server/index.js and dist/.openai/hosting.json
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling syn v2.0.119
+   Compiling syn v3.0.3
+   Compiling windows-link v0.2.1
+   Compiling serde_core v1.0.229
+   Compiling cfg-if v1.0.4
+   Compiling synstructure v0.13.2
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling serde_derive v1.0.229

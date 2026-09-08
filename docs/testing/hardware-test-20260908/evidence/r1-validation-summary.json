@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-08T03:26:07.020201+00:00",
+  "status": "PASS_DISTRIBUTION_BYTES_AND_ISOLATED_INSTALL_ONLY",
+  "release_ready": false,
+  "package": {
+    "path": "artifacts\\hardware-test-20260908-final\\rebound-hardware-test-20260908-windows-x64.zip",
+    "sha256": "1c8636e33ad3d20545ff00e8b46102e5afa531ad03107d5959fc4757f0629e5a",
+    "bytes": 23449722,
+    "files": 20,
+    "archive_byte_check": "PASS",
+    "manifest_sha256": "76d562cd90bc65e11554bb4f0317a81140a9d2be8a00aef357aa6975b5868f0a",
+    "staging_directory": "artifacts\\hardware-test-20260908-final\\rebound-hardware-test-20260908-windows-x64"
+  },
+  "actual_validation": {
+    "tauri_build_exit_code": 0,
+    "isolated_install_restore": {
+      "scope": "copied/hardlinked game tree only; installed game was untouched",
+      "game_executable_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+      "steam_api64_sha256": "a44e5537939ae4eebc69000589aa9b2437a667813a1657cc779198bae9b815a9",
+      "old_payload_sha256": "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+      "installed_candidate_sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53",
+      "restored_payload_sha256": "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+      "install_exit_code": 0,
+      "restore_exit_code": 0
+    },
+    "final_zip_extracted_preflight": {
+      "exit_code": 2,
+      "status": "BLOCKED",
+      "counts": {
+        "PASS": 41,
+        "BLOCKED": 1
+      },
+      "non_pass": [
+        {
+          "id": "game.payload.present",
+          "status": "BLOCKED",
+          "observed": {
+            "bytes": 1731984,
+            "sha256": "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3"
+          },
+          "expected": {
+            "sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53"
+          },
+          "note": "Installed Payload was read only; no replacement was attempted."
+        }
+      ]
+    },
+    "final_zip_extracted_collect": {
+      "exit_code": 2,
+      "status": "BLOCKED"
+    },
+    "signed_exe_contains_signed_payload_pin": true,
+    "pem_scan_observation": {
+      "exe_pem_delimiter_literals": 3,
+      "delimiters_followed_by_linebreak": 0,
+      "armored_private_key_blocks": 0
+    }
+  },
+  "known_failures": [
+    {
+      "status": "FAILED_PRODUCT_SCRIPT_BUG_FIXED",
+      "detail": "First isolated installer run failed at OrderedDictionary.Clone; final script explicitly copies dictionary keys. Actual install/restore then exited 0."
+    },
+    {
+      "status": "FAILED_PACKAGER_SCAN_FALSE_POSITIVE_FIXED",
+      "exit_code": 1,
+      "detail": "Initial package scanner rejected PEM delimiter strings embedded by crypto libraries. The actual EXE has 3 header literals, none followed by linebreak and no armored key body. Scanner now rejects encoded private-key blocks and private-key PEM files. Final package build exited 0."
+    }
+  ],
+  "not_run": [
+    "standalone Rust strict_build probe",
+    "signed Toolbox graphical startup",
+    "native online admission for this signed artifact pair",
+    "multiplayer gameplay",
+    "updater publication",
+    "external distribution"
+  ],
+  "native_online_status": {
+    "status": "BLOCKED",
+    "reason": "Payload/dllmain.cpp:389 fixes nativeAuthorityAdmissionVerified=false. Member blocks on payload status before Grant; Host cannot produce strict Playable. No flag was changed."
+  },
+  "historical_acceptance": "Original 52-item ledger and native evidence remain unchanged; this signed pair does not inherit historical gameplay results."
+}

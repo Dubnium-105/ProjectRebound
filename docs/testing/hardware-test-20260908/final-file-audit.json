@@ -1,0 +1,8 @@
+{
+  "status": "PASS_INDEX_AND_EXPLICIT_TEXT_PATTERN_SCAN_ONLY",
+  "files_checked": 68,
+  "evidence_bytes_verified": 46,
+  "credential_pattern_hits": [],
+  "final_archive_hash_verified": true,
+  "scope": "Specified patterns and explicit delivery sources; not native online acceptance or a general security audit."
+}

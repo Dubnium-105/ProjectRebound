@@ -1,0 +1,8 @@
+Method invocation failed because [System.Collections.Specialized.OrderedDictionary] does not contain a method named 'Cl
+one'.
+At C:\wksp\ProjectRebound\.tmp\distribution-test-20260908\toolbox\portable\Install-StrictPayload.ps1:105 char:5
++     $prepared = $intent.Clone(); $prepared.status = 'prepared'; $prep ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : MethodNotFound
+ 

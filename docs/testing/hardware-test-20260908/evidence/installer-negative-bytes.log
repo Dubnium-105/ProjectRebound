@@ -1,0 +1,8 @@
+strict payload install refused: package file bytes do not match manifest: Payload.dll
+At C:\wksp\ProjectRebound\.tmp\distribution-test-20260908\toolbox\installer-negative-bytes\Install-StrictPayload.ps1:34
+ char:35
++ ... string]$Message) { throw "strict payload install refused: $Message" }
++                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (strict payload ...st: Payload.dll:String) [], RuntimeException
+    + FullyQualifiedErrorId : strict payload install refused: package file bytes do not match manifest: Payload.dll
+ 

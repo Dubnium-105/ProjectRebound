@@ -1,0 +1,4 @@
+PASS|C:\wksp\ProjectRebound\.tmp\distribution-test-20260908\toolbox\portable\Install-StrictPayload.ps1
+PASS|C:\wksp\ProjectRebound\.tmp\distribution-test-20260908\toolbox\portable\Restore-StrictPayload.ps1
+PASS|C:\wksp\ProjectRebound\Tools\Distribution\windows-install\Install-StrictPayload.ps1
+PASS|C:\wksp\ProjectRebound\Tools\Distribution\windows-install\Restore-StrictPayload.ps1

@@ -1,0 +1,6 @@
+{
+  "status": "PASS_SCANNER_SHAPE_CHECK_ONLY",
+  "delimiter_only_accepted": true,
+  "synthetic_armored_private_key_shape_rejected": true,
+  "real_private_key_used": false
+}

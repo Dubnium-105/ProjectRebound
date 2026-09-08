@@ -1,0 +1,299 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-09-08T03:20:37.193940+00:00",
+  "status": "PASS_BUILD_COMPONENT_PACKAGE",
+  "release_ready": false,
+  "scope": "ordinary production-endpoint strict Toolbox portable test package; no game launch, native admission, online Grant, or external distribution",
+  "source": {
+    "toolbox_commit": "e360b6f1c0cc6cf6c1e89288b1ef25b306bfe482",
+    "toolbox_dirty": false,
+    "rebound_commit": "9e8137c7afeeee0e81f30038ebdc2ff8a577f3cd",
+    "rebound_dirty": true
+  },
+  "build": {
+    "feature_mode": "default (no lab-testing)",
+    "production_origins": [
+      "https://api.project-rebound.space",
+      "https://cnapi.project-rebound.space",
+      "https://meta.project-rebound.space"
+    ],
+    "strict_payload_sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53",
+    "pinned_game_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "commands": [
+      {
+        "name": "tauri_production_strict_signed_payload",
+        "command": "CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 PROJECT_REBOUND_STRICT_PAYLOAD_SHA256=77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53 frontend\\node_modules\\.bin\\tauri.cmd build --ci --no-sign",
+        "exit_code": 0,
+        "status": "PASS",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\tauri-build-production-signed-payload-cached-target.log",
+          "bytes": 2838,
+          "sha256": "ef2c66f23433f7a70641494b66a3d0f454a305658757da532b28eff30b1dab2a"
+        }
+      },
+      {
+        "name": "wintrust_and_hash_probe",
+        "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .tmp\\distribution-test-20260908\\wintrust-probe.ps1",
+        "exit_code": 0,
+        "status": "PASS_COMPONENT_ONLY",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\wintrust-probe.log",
+          "bytes": 908,
+          "sha256": "b9d7db33ed5215e9f1f6ef58e88c0585483987a775ceebd30f0e8c58dcb09c88"
+        }
+      },
+      {
+        "name": "installer_restore_script_ast_parse",
+        "command": "PowerShell AST parse portable and Tools/Distribution/windows-install scripts",
+        "exit_code": 0,
+        "status": "PASS",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\installer-script-parse-final.log",
+          "bytes": 388,
+          "sha256": "90b8475bf29f78e77f859827958a029ac6f600e5184ab87b94a178a4fc40c9a9"
+        }
+      },
+      {
+        "name": "portable_package_byte_manifest",
+        "command": "PowerShell read package-manifest.json and verify every listed file bytes/SHA256",
+        "exit_code": 0,
+        "status": "PASS",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\portable-byte-verify-final.log",
+          "bytes": 44,
+          "sha256": "61b5ab168c80617acb82d7bc28011ed37aa96a044f65eb48d2f73f59b0bf44cc"
+        }
+      },
+      {
+        "name": "installer_missing_game_preflight",
+        "command": "powershell.exe Install-StrictPayload.ps1 -GameWin64 <isolated fake Win64>",
+        "exit_code": 1,
+        "status": "PASS_EXPECTED_REFUSAL",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\install-preflight-negative-v4.log",
+          "bytes": 813,
+          "sha256": "f83cb68c543ab5fd55f9cb88d09085c6333bc26022f75d4aaa4674256e5ad0d1"
+        }
+      },
+      {
+        "name": "restore_missing_receipt_preflight",
+        "command": "powershell.exe Restore-StrictPayload.ps1 -ReceiptPath <missing receipt>",
+        "exit_code": 1,
+        "status": "PASS_EXPECTED_REFUSAL",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\restore-preflight-negative-v3.log",
+          "bytes": 640,
+          "sha256": "ed1d2b7acf1b0f669fac716d47ff876b0d0d7e16c3c3df63b7f0ffe144452e95"
+        }
+      },
+      {
+        "name": "tampered_package_manifest_preflight",
+        "command": "powershell.exe Install-StrictPayload.ps1 against isolated tampered package manifest",
+        "exit_code": 1,
+        "status": "PASS_EXPECTED_REFUSAL",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\installer-negative-manifest-v2.log",
+          "bytes": 609,
+          "sha256": "56e4ba0b9c6f8ad67b6cb2878e8f96ded30dce5dbaad9bbf537e5491e6596f8e"
+        }
+      },
+      {
+        "name": "tampered_payload_bytes_preflight",
+        "command": "powershell.exe Install-StrictPayload.ps1 against isolated tampered Payload bytes",
+        "exit_code": 1,
+        "status": "PASS_EXPECTED_REFUSAL",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\installer-negative-bytes.log",
+          "bytes": 603,
+          "sha256": "7fd01f3ca2131c5930e88633f065910d8179e0c6b62a7ba3296ea97190097841"
+        }
+      },
+      {
+        "name": "isolated_positive_install",
+        "command": "powershell.exe Install-StrictPayload.ps1 -GameWin64 <isolated copied game> -BackupRoot <isolated backup>",
+        "exit_code": 0,
+        "status": "PASS",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\isolated-install\\install-v2.log",
+          "bytes": 1558,
+          "sha256": "d15b06603451aa381b116ad389e6c3cdd882de44dc4c296a59f04746f02dd9ac"
+        }
+      },
+      {
+        "name": "isolated_positive_restore",
+        "command": "powershell.exe Restore-StrictPayload.ps1 -ReceiptPath <isolated completed install receipt>",
+        "exit_code": 0,
+        "status": "PASS",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\isolated-install\\restore.log",
+          "bytes": 943,
+          "sha256": "f6127b48ba3a6902b47ee63e341d15035442f08414085c85af428fa6a6b9e9d7"
+        }
+      },
+      {
+        "name": "isolated_first_attempt_fixed_script_bug",
+        "command": "powershell.exe Install-StrictPayload.ps1 -GameWin64 <isolated copied game> (pre-fix attempt)",
+        "exit_code": 1,
+        "status": "FAILED_PRODUCT_SCRIPT_BUG_FIXED",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\isolated-install\\install.log",
+          "bytes": 494,
+          "sha256": "2c383a3f6e7b94d7cdc680452a2a128b75c9da406d4d23a38a34b2071bec8689"
+        }
+      }
+    ],
+    "historical_attempts": [
+      {
+        "name": "tauri-build-production-strict.log",
+        "exit_code": 1,
+        "status": "FAILED_OR_INTERRUPTED_HISTORICAL",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\tauri-build-production-strict.log",
+          "bytes": 253872,
+          "sha256": "74d8f6e87300fcc754583ac341cae5cf5fbdaae287ba2a9772272e869d281014"
+        }
+      },
+      {
+        "name": "tauri-build-production-signed-payload.log",
+        "exit_code": 1,
+        "status": "FAILED_OR_INTERRUPTED_HISTORICAL",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\tauri-build-production-signed-payload.log",
+          "bytes": 4121,
+          "sha256": "270ff0e0646ad1c3b7dd2ac0bd4f3e4fd26ebff919e16cf3b0d1b4689fd1c339"
+        }
+      },
+      {
+        "name": "tauri-build-production-signed-payload-retry.log",
+        "exit_code": null,
+        "status": "FAILED_OR_INTERRUPTED_HISTORICAL",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\tauri-build-production-signed-payload-retry.log",
+          "bytes": 929,
+          "sha256": "813c0e360ff2c0d4b4310878b42650f64d09e4785416a2ce24f3c0f49d6c32f5"
+        }
+      },
+      {
+        "name": "tauri-build-production-signed-payload-short-target.log",
+        "exit_code": null,
+        "status": "FAILED_OR_INTERRUPTED_HISTORICAL",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\tauri-build-production-signed-payload-short-target.log",
+          "bytes": 1098,
+          "sha256": "6ae37ad3ee053ab08cbf47c52a4428fa79e43242eeabfd69a3014832a96f1e0d"
+        }
+      },
+      {
+        "name": "tauri-build-lab-testing.log",
+        "exit_code": null,
+        "status": "FAILED_OR_INTERRUPTED_HISTORICAL",
+        "log": {
+          "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\tauri-build-lab-testing.log",
+          "bytes": 15116,
+          "sha256": "084f67582972258dbdbb927f64cebcd8ed8c7a055ea8accb9f76cc9042472f8c"
+        }
+      }
+    ]
+  },
+  "artifacts": {
+    "portable_directory": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\portable",
+    "toolbox_exe": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\portable\\rebound_toolbox_tauri.exe",
+      "bytes": 49286456,
+      "sha256": "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75"
+    },
+    "payload_dll": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\portable\\Payload.dll",
+      "bytes": 2096440,
+      "sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53"
+    },
+    "payload_manifest": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\portable\\payload-manifest.json",
+      "bytes": 1915,
+      "sha256": "a638df27131ace588e2f0c9f132b03e7398fd7c56d073fd5ea1a1f62eedf81d8"
+    },
+    "package_manifest": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\portable\\package-manifest.json",
+      "bytes": 1738,
+      "sha256": "20a31f3f6133ce8404225a63291fb4cd8565717e3a415d235d986b453eae4325"
+    },
+    "install_script": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\portable\\Install-StrictPayload.ps1",
+      "bytes": 14271,
+      "sha256": "e90a40ad33af0c766be2d1ee05e96c5ad6001459678796ca983d8960d258585f"
+    },
+    "restore_script": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\portable\\Restore-StrictPayload.ps1",
+      "bytes": 9936,
+      "sha256": "8c936821959b5e259ca099e10fe08748751c0377fa2d6b1c82bdeecf17f46f55"
+    },
+    "run_script": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\toolbox\\portable\\Run-Toolbox.cmd",
+      "bytes": 207,
+      "sha256": "64858c4549341f7899626724966b0ce01aee1a1eb89f09c2067b5f78a71c02d7"
+    },
+    "signed_source_payload": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\signed\\Payload.dll",
+      "bytes": 2096440,
+      "sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53"
+    },
+    "signed_source_toolbox": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\signed\\rebound_toolbox_tauri.exe",
+      "bytes": 49286456,
+      "sha256": "5b6be61380a7bd26f0ff203b1117731d1c0786221ca3e45147dae9c49d126b75"
+    },
+    "isolated_install_receipt": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\isolated-install\\backup\\20260908T031912006Z-5d554d92fb7546c2bebf7c7394194ac7\\payload-install-receipt.json",
+      "bytes": 1556,
+      "sha256": "2b5395878b70ec7d82170d7eb5c5e6b0e81604af9ed23f6d7a11ab6996abdf7b"
+    }
+  },
+  "signature_probe": {
+    "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+    "accepted_hresult": [
+      0,
+      -2146762487
+    ],
+    "signed_toolbox_hresult": -2146762487,
+    "signed_payload_hresult": -2146762487,
+    "unsigned_297c_payload_hresult": -2146762496,
+    "probe_output": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\distribution-test-20260908\\wintrust-probe-output.json",
+      "bytes": 910,
+      "sha256": "8b464c8aba37e16a631a3cc5900d9b98340a19cabe8678fb0d870effd566690e"
+    }
+  },
+  "dependencies": {
+    "existing_runtime_required": [
+      "ProjectBoundarySteam-Win64-Shipping.exe",
+      "Payload.dll",
+      "dxgi.dll",
+      "DT_ItemType.json",
+      "Engine/Binaries/ThirdParty/Steamworks/Steamv157/Win64/steam_api64.dll"
+    ],
+    "embedded_toolbox_runtimes": [
+      "vnt-runtime",
+      "meta-tunnel-runtime",
+      "aria2c"
+    ],
+    "webview2_and_msvc": "host prerequisites are checked by native package component scripts"
+  },
+  "isolated_install_observation": {
+    "scope": "copied/hardlinked game tree only; installed game was untouched",
+    "game_executable_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "steam_api64_sha256": "a44e5537939ae4eebc69000589aa9b2437a667813a1657cc779198bae9b815a9",
+    "old_payload_sha256": "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+    "installed_candidate_sha256": "77e255b833e2bf953e67f1b199c731a35ffe76e75415d7b65830a5dd656e0f53",
+    "restored_payload_sha256": "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+    "install_exit_code": 0,
+    "restore_exit_code": 0
+  },
+  "rust_strict_build_probe": {
+    "status": "NOT_RUN",
+    "reason": "The Rust strict_build verifier was not invoked as a standalone probe; C# WinVerifyTrust/hash probe is recorded separately."
+  },
+  "native_online_acceptance": {
+    "status": "NOT_RUN",
+    "reason": "No Boundary launch, Payload IPC, Backend reserve/confirm, Grant, CONNECTED, or Playable evidence in this packaging run."
+  }
+}

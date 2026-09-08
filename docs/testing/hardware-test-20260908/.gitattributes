@@ -1,0 +1,3 @@
+** -text whitespace=cr-at-eol
+# Preserve original execution outputs, including progress-line whitespace.
+evidence/** -whitespace

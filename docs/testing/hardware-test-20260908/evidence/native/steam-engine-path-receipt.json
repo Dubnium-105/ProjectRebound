@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "tool": "ProjectRebound.WindowsNativeDistribution.SteamPathCheck",
+  "generated_at_utc": "2026-09-08T03:09:33.3041733Z",
+  "status": "BLOCKED",
+  "scope": "read-only Steam runtime path verification; no launch, install, DLL replacement or pipe write",
+  "source_files": [
+    {
+      "path": "Tools/Distribution/windows-native/Common-WindowsNative.ps1",
+      "bytes": 43888,
+      "sha256": "b216fd665da3e918ba8a09947f7c5dc3ba60f525740239a41749d476bf56234b"
+    },
+    {
+      "path": "Tools/Distribution/windows-native/Preflight-WindowsNative.ps1",
+      "bytes": 2153,
+      "sha256": "213a06fdaf404cf47a6a71f4299b6c7161123632079105ed4ce0aa10bc4ec3d0"
+    },
+    {
+      "path": "Tools/Distribution/windows-native/Collect-WindowsNative.ps1",
+      "bytes": 2869,
+      "sha256": "cacc4e738147caaa86e45466b2a4bd3441510afa3f806687305f46adebcc17e0"
+    },
+    {
+      "path": "Tools/Distribution/windows-native/Test-WindowsNative.ps1",
+      "bytes": 4075,
+      "sha256": "d609521aed16fef3b953d3aaef693ff508c07b561ed77fe05fe8db2f7e24f550"
+    },
+    {
+      "path": "Tools/Distribution/windows-native/README.md",
+      "bytes": 6076,
+      "sha256": "69078efb93bd408427f6cb4e65eb5e9da0da496b33a4c22c5aac4b023c831451"
+    },
+    {
+      "path": "Tools/Distribution/windows-native/package-manifest.schema.json",
+      "bytes": 1577,
+      "sha256": "13bab1173b09ba31f9223d8d50482b9b869dc3d723cf649a8e7fb8d8734315d2"
+    }
+  ],
+  "runtime_source": {
+    "toolbox_file": "ProjectReboundToolbox/src/api/infrastructure/steam_runtime.rs",
+    "observed_literal": "..\\\\..\\\\..\\\\Engine\\\\Binaries\\\\ThirdParty\\\\Steamworks\\\\Steamv157\\\\Win64\\\\steam_api64.dll",
+    "authority": "Engine-tree Steamv157 module"
+  },
+  "command": {
+    "name": "preflight_engine_steam_path",
+    "command": "Preflight-WindowsNative.ps1 -PackageRoot <existing-fixture> -GameExePath <fixed-game> -ToolboxExePath <fixture-toolbox> -ExpectedToolboxSha256 <fixture-hash>",
+    "exit_code": 2,
+    "evidence": "evidence-steam-engine-preflight.json"
+  },
+  "host": {
+    "fixed_game_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "fixed_game_bytes": 102362112,
+    "steam_api_status": "PASS",
+    "steam_api_path": "C:\\Steam\\steamapps\\common\\Boundary\\Engine\\Binaries\\ThirdParty\\Steamworks\\Steamv157\\Win64\\steam_api64.dll",
+    "steam_api_sha256": "a44e5537939ae4eebc69000589aa9b2437a667813a1657cc779198bae9b815a9",
+    "steam_api_bytes": 298856,
+    "steam_api_signature": {
+      "status": "Valid",
+      "signer": "Valve Corp.",
+      "has_signature": true
+    },
+    "side_by_side_gamebin_copy_checked_by_tool": false,
+    "side_by_side_copy_required": false,
+    "webview2": {
+      "id": "webview2.runtime",
+      "status": "PASS",
+      "observed": {
+        "present": true,
+        "versions": [
+          "151.0.4129.107",
+          "152.0.4191.66"
+        ],
+        "count": 2
+      },
+      "expected": "installed WebView2 Evergreen runtime",
+      "note": "Toolbox Tauri requires WebView2; no installer is run."
+    },
+    "vc_runtime": {
+      "id": "vc.runtime",
+      "status": "PASS",
+      "observed": {
+        "required": [
+          "vcruntime140.dll",
+          "vcruntime140_1.dll",
+          "msvcp140.dll"
+        ],
+        "present": [
+          {
+            "name": "vcruntime140.dll",
+            "bytes": 123472,
+            "file_version": "14.50.35719.0"
+          },
+          {
+            "name": "vcruntime140_1.dll",
+            "bytes": 47264,
+            "file_version": "14.50.35719.0"
+          },
+          {
+            "name": "msvcp140.dll",
+            "bytes": 553552,
+            "file_version": "14.50.35719.0"
+          }
+        ],
+        "missing": [],
+        "complete": true,
+        "minimum_version": "14.50.35717",
+        "minimum_declared": true,
+        "below_minimum": [],
+        "version_failures": [],
+        "compatible": true
+      },
+      "expected": {
+        "files": [
+          "vcruntime140.dll",
+          "vcruntime140_1.dll",
+          "msvcp140.dll"
+        ],
+        "minimum_version": "14.50.35717"
+      },
+      "note": "MSVC runtime DLLs and the manifest minimum version are checked read only."
+    },
+    "exact_game_process_count": 0
+  },
+  "payload": {
+    "status": "BLOCKED",
+    "installed_sha256": "6c7b5e05540ac72a6d7a9fa78f867917285fce00081156ee13d237aa4d6c24a3",
+    "installed_bytes": 1731984,
+    "replacement_attempted": false
+  },
+  "native_online_acceptance": {
+    "status": "NOT_RUN",
+    "reason": "The narrow check only verifies package/host prerequisites; it never launches Boundary or contacts the Payload pipe."
+  },
+  "safety": {
+    "game_started": false,
+    "dll_replaced": false,
+    "named_pipe_written": false,
+    "credentials_collected": false,
+    "raw_logs_collected": false,
+    "owned_processes_after_run": 0
+  },
+  "evidence": {
+    "path": ".tmp/distribution-test-20260908/native/evidence-steam-engine-preflight.json",
+    "bytes": 26861,
+    "sha256": "6f8704a6604325b358055810f3c422882fbc1d6ebcc33e8da92839b5843af055"
+  },
+  "note": "The package fixture predates this source-only path change; the run is a narrow host-path observation, not a final package receipt. Regenerate the final package manifest/SHA256SUMS with these six source files."
+}

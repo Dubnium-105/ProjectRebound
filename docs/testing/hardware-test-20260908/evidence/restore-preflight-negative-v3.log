@@ -1,0 +1,9 @@
+Resolve-Path : Cannot find path 'C:\wksp\ProjectRebound\.tmp\distribution-test-20260908\missing-receipt.json' because i
+t does not exist.
+At C:\wksp\ProjectRebound\.tmp\distribution-test-20260908\toolbox\portable\Restore-StrictPayload.ps1:43 char:36
++ ... iteralPath (Resolve-Path -LiteralPath $ReceiptPath -ErrorAction Stop) ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (C:\wksp\Project...ng-receipt.json:String) [Resolve-Path], ItemNotFoundE 
+   xception
+    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.ResolvePathCommand
+ 

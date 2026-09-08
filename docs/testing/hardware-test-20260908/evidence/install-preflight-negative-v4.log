@@ -1,0 +1,9 @@
+strict payload install refused: game executable is missing: C:\wksp\ProjectRebound\.tmp\distribution-test-20260908\fake
+-game\ProjectBoundary\Binaries\Win64\ProjectBoundarySteam-Win64-Shipping.exe
+At C:\wksp\ProjectRebound\.tmp\distribution-test-20260908\toolbox\portable\Install-StrictPayload.ps1:34 char:35
++ ... string]$Message) { throw "strict payload install refused: $Message" }
++                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (strict payload ...64-Shipping.exe:String) [], RuntimeException
+    + FullyQualifiedErrorId : strict payload install refused: game executable is missing: C:\wksp\ProjectRebound\.tmp\ 
+   distribution-test-20260908\fake-game\ProjectBoundary\Binaries\Win64\ProjectBoundarySteam-Win64-Shipping.exe
+ 
