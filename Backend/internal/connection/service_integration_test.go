@@ -2,6 +2,8 @@ package connection
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"testing"
@@ -9,13 +11,14 @@ import (
 
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/config"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/database"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/matchlobby"
+	"github.com/Dubnium-105/ProjectRebound/Backend/internal/p2pbattlelog"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/p2proom"
 	"github.com/Dubnium-105/ProjectRebound/Backend/internal/player"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
-	t.Skip("retired standalone-room compatibility fixture; current connections require a managed frozen match attempt")
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
 		t.Skip("TEST_DATABASE_URL is not set")
@@ -41,6 +44,8 @@ func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM connections WHERE host_player_id = ANY($1) OR peer_player_id = ANY($1)", playerIDs)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM p2p_match_sessions WHERE host_player_id_at_start = ANY($1)", playerIDs)
+		_, _ = pool.Exec(cleanupCtx, "DELETE FROM match_lobbies WHERE owner_player_id = ANY($1)", playerIDs)
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM p2p_room_members WHERE player_id = ANY($1)", playerIDs)
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM p2p_rooms WHERE host_player_id = ANY($1)", playerIDs)
 		_, _ = pool.Exec(cleanupCtx, "DELETE FROM players WHERE id = ANY($1)", playerIDs)
@@ -52,29 +57,86 @@ func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
 	peerEvents := hub.Subscribe(peer.PlayerID)
 	defer peerEvents.Close()
 	roomService := p2proom.NewService(p2proom.NewRepository(pool), config.Defaults.P2PRoom)
+	secretBox, _, err := p2proom.NewSecretBox("", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	roomService.SetVNT(nil, secretBox)
+	battleLogService := p2pbattlelog.NewService(p2pbattlelog.NewRepository(pool), config.Defaults.P2PBattleLog)
+	roomService.SetMatchLifecycle(battleLogService)
+	matchConfig := config.Defaults.MatchLobby
+	matchConfig.AcceptNewLobbies = true
+	seed := make([]byte, ed25519.SeedSize)
+	for index := range seed {
+		seed[index] = byte(index + 1)
+	}
+	signer, err := matchlobby.NewAdmissionSigner(
+		"integration-connection-lifecycle",
+		base64.StdEncoding.EncodeToString(seed),
+		"test",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	matchService := matchlobby.NewService(matchlobby.NewRepository(pool), matchConfig, signer, 45*time.Second)
+	matchService.SetP2PTransport(roomService)
+	matchService.SetP2PMatchProjector(battleLogService)
 	service := NewService(NewRepository(pool), roomService, hub, config.Defaults.Connection)
 	roomService.SetConnectionCreator(service)
-	room, err := roomService.Create(ctx, p2proom.Actor{PlayerID: host.PlayerID, AccountStatus: host.AccountStatus}, p2proom.CreateInput{
-		DisplayName: "Connection Integration", Region: "hk", Mode: "coop", Version: "1.0.0", MaxPlayers: 4,
+	matchOwner := matchlobby.Actor{
+		PlayerID: host.PlayerID, AccountStatus: host.AccountStatus,
+		AuthLevel: player.AuthLevelVerified, SteamVerified: true,
+	}
+	matchMember := matchlobby.Actor{
+		PlayerID: peer.PlayerID, AccountStatus: peer.AccountStatus,
+		AuthLevel: player.AuthLevelVerified, SteamVerified: true,
+	}
+	created, err := matchService.Create(ctx, matchOwner, matchlobby.CreateInput{
+		DisplayName: "Connection Integration", HostingKind: matchlobby.HostingP2P,
+		TransportKind: matchlobby.TransportLegacy, Mode: "TDM", Region: "hk",
+		ClientVersion: "1.0.0", ProtocolVersion: 1, TeamOneCapacity: 2,
+		TeamTwoCapacity: 2, TeamID: 1,
+		IdempotencyKey: "integration-connection-lifecycle",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := roomService.Join(ctx, p2proom.Actor{PlayerID: peer.PlayerID, AccountStatus: peer.AccountStatus}, room.Room.ID, "1.0.0"); err != nil {
+	joined, err := matchService.Join(ctx, matchMember, created.Snapshot.LobbyID, 2, created.Snapshot.RosterRevision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readyOwner, err := matchService.SetReady(ctx, matchOwner, joined.LobbyID, true, joined.RosterRevision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readyMember, err := matchService.SetReady(ctx, matchMember, joined.LobbyID, true, readyOwner.RosterRevision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	frozen, err := matchService.Start(ctx, matchOwner, joined.LobbyID, readyMember.RosterRevision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if frozen.Attempt == nil || frozen.Attempt.State != matchlobby.AttemptProvisioning {
+		t.Fatalf("managed attempt was not provisioned: %+v", frozen.Attempt)
+	}
+	room, err := roomService.Get(ctx, frozen.P2PRoomID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roomHostToken := created.TransportHostToken
+
+	connection, err := service.Create(ctx, peer, CreateInput{RoomID: room.ID})
+	if err != nil {
 		t.Fatal(err)
 	}
 	assertEventType(t, hostEvents, "connection.created")
 	assertEventType(t, peerEvents, "connection.created")
-
-	connection, err := service.Create(ctx, peer, CreateInput{RoomID: room.Room.ID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	repeated, err := service.Create(ctx, peer, CreateInput{RoomID: room.Room.ID})
+	repeated, err := service.Create(ctx, peer, CreateInput{RoomID: room.ID})
 	if err != nil || repeated.ID != connection.ID {
 		t.Fatalf("idempotent create = %#v, %v", repeated, err)
 	}
-	if _, err := service.Create(ctx, banned, CreateInput{RoomID: room.Room.ID}); connectionErrorCode(err) != "ACCOUNT_NOT_ACTIVE" {
+	if _, err := service.Create(ctx, banned, CreateInput{RoomID: room.ID}); connectionErrorCode(err) != "ACCOUNT_NOT_ACTIVE" {
 		t.Fatalf("banned create error = %v", err)
 	}
 	if _, err := service.Get(ctx, outsider, connection.ID); connectionErrorCode(err) != "CONNECTION_FORBIDDEN" {
@@ -126,16 +188,19 @@ func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
 	if _, err := service.AddCandidate(ctx, peer, changedCandidate); connectionErrorCode(err) != "INVALID_CONNECTION_STATE" {
 		t.Fatalf("changed candidate after path selection error = %v", err)
 	}
-	runningRoom, err := roomService.Get(ctx, room.Room.ID)
-	if err != nil || runningRoom.State != p2proom.StateRunning {
-		t.Fatalf("connected room state = %#v, %v", runningRoom, err)
+	runningRoom, err := roomService.Get(ctx, room.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runningRoom.State == p2proom.StateRunning {
+		t.Fatalf("managed connected room was incorrectly promoted to RUNNING: %#v", runningRoom)
 	}
 	closed, err := service.Close(ctx, host, connection.ID)
 	if err != nil || closed.State != StateClosed {
 		t.Fatalf("close = %#v, %v", closed, err)
 	}
 
-	relayFallback, err := service.Create(ctx, peer, CreateInput{RoomID: room.Room.ID})
+	relayFallback, err := service.Create(ctx, peer, CreateInput{RoomID: room.ID})
 	if err != nil || relayFallback.ID == connection.ID {
 		t.Fatalf("replacement connection = %#v, %v", relayFallback, err)
 	}
@@ -246,8 +311,8 @@ func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
 	if _, err := roomService.Heartbeat(
 		ctx,
 		p2proom.Actor{PlayerID: host.PlayerID, AccountStatus: host.AccountStatus},
-		room.Room.ID,
-		room.HostToken,
+		room.ID,
+		roomHostToken,
 	); err != nil {
 		t.Fatalf("room heartbeat connection renewal: %v", err)
 	}
@@ -286,15 +351,15 @@ func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
 	if err != nil || expired.State != StateExpired {
 		t.Fatalf("expired connection = %#v, %v", expired, err)
 	}
-	roomBound, err := service.Create(ctx, peer, CreateInput{RoomID: room.Room.ID})
+	roomBound, err := service.Create(ctx, peer, CreateInput{RoomID: room.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := roomService.Delete(
+	if _, err := roomService.DeleteManaged(
 		ctx,
 		p2proom.Actor{PlayerID: host.PlayerID, AccountStatus: host.AccountStatus},
-		room.Room.ID,
-		room.HostToken,
+		room.ID,
+		roomHostToken,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -309,8 +374,11 @@ func insertConnectionPlayer(t *testing.T, ctx context.Context, pool *pgxpool.Poo
 	id := newID("player_")
 	now := time.Now().UTC()
 	if _, err := pool.Exec(ctx, `
-		INSERT INTO players (id, steam_id, persona_name, account_status, created_at, updated_at)
-		VALUES ($1, $2, 'Connection Integration', $3, $4, $4)
+		INSERT INTO players (
+			id, steam_id, persona_name, account_status, auth_provider, auth_level,
+			created_at, updated_at
+		)
+		VALUES ($1, $2, 'Connection Integration', $3, 'steam_ticket', 'verified', $4, $4)
 	`, id, steamID, status, now); err != nil {
 		t.Fatal(err)
 	}
