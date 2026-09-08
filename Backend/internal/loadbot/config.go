@@ -67,9 +67,9 @@ func LoadConfig(path string) (Config, error) {
 		return Config{}, errors.New("duration must be a Go duration such as 1h or 30m")
 	}
 	switch cfg.Scenario {
-	case "", "basic", "auth", "auth-bind", "p2p", "relay", "full", "soak":
+	case "", "basic", "auth", "auth-bind", "p2p", "relay", "websocket", "full", "soak":
 	default:
-		return Config{}, errors.New("scenario must be basic, auth-bind, p2p, relay, full, or soak")
+		return Config{}, errors.New("scenario must be basic, auth-bind, p2p, relay, websocket, full, or soak")
 	}
 	if cfg.RequestIntervalMS <= 0 {
 		cfg.RequestIntervalMS = 1000
@@ -104,7 +104,7 @@ func LoadConfig(path string) (Config, error) {
 	if cfg.Traffic.JitterMS < 0 || cfg.Traffic.JitterMS > 60000 || cfg.FailureInjection.DisconnectPercent < 0 || cfg.FailureInjection.DisconnectPercent > 100 || cfg.FailureInjection.ReconnectDelaySeconds < 0 {
 		return Config{}, errors.New("traffic jitter and failure injection values are outside the accepted range")
 	}
-	if (cfg.Scenario == "p2p" || cfg.Scenario == "relay" || cfg.Scenario == "full" || cfg.Scenario == "soak") && cfg.Rooms == 0 {
+	if (cfg.Scenario == "p2p" || cfg.Scenario == "relay" || cfg.Scenario == "websocket" || cfg.Scenario == "full" || cfg.Scenario == "soak") && cfg.Rooms == 0 {
 		return Config{}, errors.New("end-to-end scenarios require rooms")
 	}
 	return cfg, nil
