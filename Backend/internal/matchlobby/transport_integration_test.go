@@ -86,6 +86,44 @@ func TestAuthoritativeTransportAndConnectionScopeAgainstPostgreSQL(t *testing.T)
 	if attemptState != string(AttemptProvisioning) || payloadInstalled != "false" {
 		t.Fatalf("provisioning heartbeat changed native readiness state: attempt=%s payload_installed=%s", attemptState, payloadInstalled)
 	}
+	// A still-live authority session from an older attempt must not keep the
+	// lobby's current managed transport alive after the lobby points at a newer
+	// attempt.  This is a database-backed scope check, rather than a duplicate
+	// SQL assertion: the heartbeat must be rejected and the room lease must be
+	// unchanged.
+	supersededAttemptID := fmt.Sprintf("integration-transport-scope-superseded-%d", suffix)
+	var roomHeartbeatBefore time.Time
+	if err := pool.QueryRow(ctx, `SELECT last_heartbeat_at FROM p2p_rooms WHERE id = $1`, frozen.P2PRoomID).Scan(&roomHeartbeatBefore); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO match_attempts (
+			id, lobby_id, attempt_number, hosting_kind, state, roster_revision,
+			authority_id, authority_session_id, route_generation, created_at, updated_at
+		) VALUES ($1, $2, 2, 'P2P', 'ABORTED', $3, $4, $5, 1, $6, $6)
+	`, supersededAttemptID, frozen.LobbyID, frozen.RosterRevision, owner.PlayerID,
+		"superseded-authority-session", time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE match_lobbies SET current_attempt_id = $2 WHERE id = $1`, frozen.LobbyID, supersededAttemptID); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.P2PAuthorityHeartbeat(ctx, owner, authoritySession, frozen.Attempt.AttemptID); errorCode(err) != "MATCH_AUTHORITY_SCOPE_REQUIRED" {
+		t.Fatalf("superseded P2P authority renewed a non-current attempt: %v", err)
+	}
+	var roomHeartbeatAfter time.Time
+	if err := pool.QueryRow(ctx, `SELECT last_heartbeat_at FROM p2p_rooms WHERE id = $1`, frozen.P2PRoomID).Scan(&roomHeartbeatAfter); err != nil {
+		t.Fatal(err)
+	}
+	if !roomHeartbeatAfter.Equal(roomHeartbeatBefore) {
+		t.Fatalf("superseded P2P heartbeat changed the managed room lease: before=%s after=%s", roomHeartbeatBefore, roomHeartbeatAfter)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE match_lobbies SET current_attempt_id = $2 WHERE id = $1`, frozen.LobbyID, frozen.Attempt.AttemptID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM match_attempts WHERE id = $1`, supersededAttemptID); err != nil {
+		t.Fatal(err)
+	}
 	scope := TransportScopeRequest{
 		AttemptID: frozen.Attempt.AttemptID, RosterRevision: frozen.Attempt.RosterRevision,
 		RouteGeneration: frozen.Attempt.RouteGeneration,

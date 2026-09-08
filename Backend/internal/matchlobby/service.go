@@ -2621,7 +2621,8 @@ func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authority
 		                AND NULLIF(host.live_native_connection_nonce, '') IS NULL,
 		                FALSE)
 		FROM match_attempts AS attempt
-		JOIN match_lobbies AS lobby ON lobby.id = attempt.lobby_id
+		JOIN match_lobbies AS lobby
+		  ON lobby.id = attempt.lobby_id AND lobby.current_attempt_id = attempt.id
 		LEFT JOIN match_attempt_roster AS host
 		  ON host.attempt_id = attempt.id AND host.room_role = 'HOST'
 		WHERE attempt.id = $1 AND attempt.authority_id = $2 AND attempt.authority_session_id = $3
