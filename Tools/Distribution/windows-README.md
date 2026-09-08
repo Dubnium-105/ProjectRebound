@@ -24,7 +24,7 @@ The target needs WebView2 Runtime. If it is missing, install it from the [Micros
 2. Fully exit Boundary and all Toolbox windows. Open PowerShell and change to the extracted directory.
 3. Run `Install-StrictPayload.ps1` with `-GameWin64` pointing to the actual `ProjectBoundary\Binaries\Win64` directory. The script checks the package, game, and candidate DLL, saves the old DLL and install receipt, then replaces Payload. Record the receipt location.
 4. Double-click `Run-Toolbox.cmd`, select the actual game directory in Toolbox, and use Steam login normally. Each tester uses their own account; do not copy configuration or share credentials.
-5. Follow `TEST-MATRIX.md`: all three players join the same authoritative P2P lobby and become ready. The owner selects **Collect native proof**; members launch and connect through the managed flow. Press SPACE if the game requests platform login. Record the actual result on every machine and verify cleanup after collection.
+5. Follow `TEST-MATRIX.md`: all three players join the same authoritative P2P lobby. Once everyone has joined, each person, including the owner, clicks **Ready**. Roster changes reset readiness and require another confirmation. The owner selects **Collect native proof**; members launch and connect through the managed flow. Press SPACE if the game requests platform login. Record the actual result on every machine and verify cleanup after collection.
 
 For a game installed on drive D:
 
