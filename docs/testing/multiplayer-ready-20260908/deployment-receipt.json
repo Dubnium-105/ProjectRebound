@@ -1,0 +1,425 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-08T07:00:49.270504+00:00",
+  "status": "PASS_EXISTING_BACKEND_DEPLOYMENT_ONLY",
+  "scope": "Existing service updated; native/game/physical-machine acceptance is separate.",
+  "deployed_ci_commit": "584e000baf024e381c5bdb3417ad7ac879bebdca",
+  "backend_implementation_source_commit": "5e1953b525cc27e8e209abb877c938c4920c16a7",
+  "backend_subtree_equal": true,
+  "ci": {
+    "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34195322102",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "V1.1 disposable control plane and two-Relay integration",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:35:22Z",
+        "completedAt": "2026-09-08T06:42:18Z"
+      },
+      {
+        "name": "C++ command protocol",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:35:22Z",
+        "completedAt": "2026-09-08T06:35:53Z"
+      },
+      {
+        "name": "Windows named-pipe integration",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:35:24Z",
+        "completedAt": "2026-09-08T06:37:03Z"
+      },
+      {
+        "name": "Go backend and PostgreSQL",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:35:22Z",
+        "completedAt": "2026-09-08T06:42:01Z"
+      },
+      {
+        "name": "Deployment and workflow configuration",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:35:22Z",
+        "completedAt": "2026-09-08T06:35:53Z"
+      },
+      {
+        "name": "Independent administrator web",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:35:25Z",
+        "completedAt": "2026-09-08T06:36:45Z"
+      },
+      {
+        "name": "Build and package load-bot image",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:42:22Z",
+        "completedAt": "2026-09-08T06:44:21Z"
+      },
+      {
+        "name": "Build and package meta-server image",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:42:21Z",
+        "completedAt": "2026-09-08T06:44:38Z"
+      },
+      {
+        "name": "Build and package edge-relay image",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:42:21Z",
+        "completedAt": "2026-09-08T06:43:44Z"
+      },
+      {
+        "name": "Build and package admin-web image",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:42:22Z",
+        "completedAt": "2026-09-08T06:45:30Z"
+      },
+      {
+        "name": "Build and package control-plane image",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:42:21Z",
+        "completedAt": "2026-09-08T06:44:30Z"
+      }
+    ]
+  },
+  "deployment": {
+    "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34196303351",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Deploy control plane",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:48:30Z",
+        "completedAt": "2026-09-08T06:49:27Z"
+      },
+      {
+        "name": "Deploy edge relay (gateway)",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:48:31Z",
+        "completedAt": "2026-09-08T06:48:51Z"
+      },
+      {
+        "name": "Deploy edge relay (primary)",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:48:30Z",
+        "completedAt": "2026-09-08T06:48:52Z"
+      },
+      {
+        "name": "Deploy MetaServer only",
+        "conclusion": "success",
+        "startedAt": "2026-09-08T06:49:30Z",
+        "completedAt": "2026-09-08T06:50:02Z"
+      }
+    ]
+  },
+  "schema_before": 43,
+  "schema_after": 48,
+  "running_project_images": [
+    {
+      "name": "project-rebound-control-plane-meta-server-1",
+      "image": "ghcr.io/dubnium-105/projectrebound-meta-server:sha-584e000baf024e381c5bdb3417ad7ac879bebdca",
+      "image_id": "sha256:98e43aa31c6e50a04af23ee250055bc2dda7ce94610824a8b5f398381452de87",
+      "digests": [
+        "ghcr.io/dubnium-105/projectrebound-meta-server@sha256:98e43aa31c6e50a04af23ee250055bc2dda7ce94610824a8b5f398381452de87"
+      ],
+      "running": true,
+      "health": "healthy",
+      "started_at": "2026-09-08T06:49:57.57984367Z",
+      "oci_revision": "584e000baf024e381c5bdb3417ad7ac879bebdca"
+    },
+    {
+      "name": "project-rebound-control-plane-control-plane-1",
+      "image": "ghcr.io/dubnium-105/projectrebound-control-plane:sha-584e000baf024e381c5bdb3417ad7ac879bebdca",
+      "image_id": "sha256:1bcacadf43f14a777304bc06f0acb0c0d86890400a7f34476f67b7a0143707af",
+      "digests": [
+        "ghcr.io/dubnium-105/projectrebound-control-plane@sha256:1bcacadf43f14a777304bc06f0acb0c0d86890400a7f34476f67b7a0143707af"
+      ],
+      "running": true,
+      "health": "healthy",
+      "started_at": "2026-09-08T06:49:13.462363084Z",
+      "oci_revision": "584e000baf024e381c5bdb3417ad7ac879bebdca"
+    },
+    {
+      "name": "project-rebound-control-plane-admin-web-1",
+      "image": "ghcr.io/dubnium-105/projectrebound-admin-web:sha-584e000baf024e381c5bdb3417ad7ac879bebdca",
+      "image_id": "sha256:438067975ffdcfa40c1cf4ceb38fb30cf83050848941b60426e933d54e043d30",
+      "digests": [
+        "ghcr.io/dubnium-105/projectrebound-admin-web@sha256:438067975ffdcfa40c1cf4ceb38fb30cf83050848941b60426e933d54e043d30"
+      ],
+      "running": true,
+      "health": null,
+      "started_at": "2026-09-08T06:49:09.926050618Z",
+      "oci_revision": "584e000baf024e381c5bdb3417ad7ac879bebdca"
+    },
+    {
+      "name": "project-rebound-edge-relay-edge-relay-1",
+      "image": "ghcr.io/dubnium-105/projectrebound-edge-relay:sha-584e000baf024e381c5bdb3417ad7ac879bebdca",
+      "image_id": "sha256:01ea88a73a4f066451d269bfd8789f6b2fbc475d64666da72df1e742c0de6824",
+      "digests": [
+        "ghcr.io/dubnium-105/projectrebound-edge-relay@sha256:01ea88a73a4f066451d269bfd8789f6b2fbc475d64666da72df1e742c0de6824"
+      ],
+      "running": true,
+      "health": null,
+      "started_at": "2026-09-08T06:48:47.789347914Z",
+      "oci_revision": "584e000baf024e381c5bdb3417ad7ac879bebdca"
+    }
+  ],
+  "public_client_user_agent_probe": {
+    "observed_at": "2026-09-08T06:52:54.323623+00:00",
+    "scope": "Actual public HTTP from development Windows machine, using the current Toolbox User-Agent; not authenticated game login.",
+    "user_agent": "project-rebound-toolbox/0.9.12",
+    "checks": [
+      {
+        "url": "https://api.project-rebound.space/health/live",
+        "exit_code": 0,
+        "http_status": 200,
+        "body": {
+          "data": {
+            "status": "live"
+          },
+          "request_id": "req_574dc22a915f43eeacc1d4f16556da6e"
+        },
+        "stderr": ""
+      },
+      {
+        "url": "https://api.project-rebound.space/health/ready",
+        "exit_code": 0,
+        "http_status": 200,
+        "body": {
+          "data": {
+            "status": "ready"
+          },
+          "request_id": "req_a8f069ecc03a4a7db6ea35390a97e00d"
+        },
+        "stderr": ""
+      },
+      {
+        "url": "https://api.project-rebound.space/v1/client/config",
+        "exit_code": 0,
+        "http_status": 200,
+        "body": {
+          "data": {
+            "api_version": "v1",
+            "protocol_version": 2,
+            "minimum_client_version": "1.0.0",
+            "realtime_url": "wss://api.project-rebound.space/v1/realtime/connect",
+            "stun_servers": [
+              "stun:stun.l.google.com:19302"
+            ],
+            "relay": {
+              "available": true,
+              "regions": [
+                {
+                  "id": "lax",
+                  "available": true
+                }
+              ]
+            },
+            "features": {
+              "p2p_rooms": true,
+              "relay": true,
+              "dedicated_servers": true,
+              "vnt_rooms": false,
+              "strict_roster_v1": true,
+              "accept_new_lobbies": true
+            }
+          },
+          "request_id": "req_18e752d557f94397ab472c7b4e335600"
+        },
+        "stderr": ""
+      },
+      {
+        "url": "https://api.project-rebound.space/internal/metrics",
+        "exit_code": 0,
+        "http_status": 404,
+        "body": "",
+        "stderr": ""
+      },
+      {
+        "url": "https://api.project-rebound.space/v1/admin/players",
+        "exit_code": 0,
+        "http_status": 404,
+        "body": "",
+        "stderr": ""
+      },
+      {
+        "url": "https://api.project-rebound.space/v1/p2p-rooms",
+        "exit_code": 0,
+        "http_status": 410,
+        "body": {
+          "error": {
+            "code": "ONLINE_P2P_ROOM_RETIRED",
+            "message": "Standalone online P2P rooms are retired; create or join an authoritative match lobby.",
+            "details": {}
+          },
+          "request_id": "req_4d131b2715754e9b91bab0456e21bb31"
+        },
+        "stderr": ""
+      },
+      {
+        "url": "https://cnapi.project-rebound.space/health/ready",
+        "exit_code": 0,
+        "http_status": 200,
+        "body": {
+          "data": {
+            "status": "ready"
+          },
+          "request_id": "req_8e2f04c74e6749f8882eba05e3a8ee0e"
+        },
+        "stderr": ""
+      },
+      {
+        "url": "https://cnapi.project-rebound.space/v1/client/config",
+        "exit_code": 0,
+        "http_status": 200,
+        "body": {
+          "data": {
+            "api_version": "v1",
+            "protocol_version": 2,
+            "minimum_client_version": "1.0.0",
+            "realtime_url": "wss://api.project-rebound.space/v1/realtime/connect",
+            "stun_servers": [
+              "stun:stun.l.google.com:19302"
+            ],
+            "relay": {
+              "available": true,
+              "regions": [
+                {
+                  "id": "lax",
+                  "available": true
+                }
+              ]
+            },
+            "features": {
+              "p2p_rooms": true,
+              "relay": true,
+              "dedicated_servers": true,
+              "vnt_rooms": false,
+              "strict_roster_v1": true,
+              "accept_new_lobbies": true
+            }
+          },
+          "request_id": "req_ba3f1f654c284f11a0b474f44263464a"
+        },
+        "stderr": ""
+      },
+      {
+        "url": "https://meta.project-rebound.space/health/live",
+        "exit_code": 0,
+        "http_status": 200,
+        "body": {
+          "data": {
+            "status": "live"
+          },
+          "request_id": "req_3de1485014ae46bf90d1cc69a0e59056"
+        },
+        "stderr": ""
+      },
+      {
+        "url": "https://meta.project-rebound.space/health/ready",
+        "exit_code": 0,
+        "http_status": 200,
+        "body": {
+          "data": {
+            "status": "ready"
+          },
+          "request_id": "req_941b736fa275442fb926c48a85726a14"
+        },
+        "stderr": ""
+      }
+    ]
+  },
+  "first_probe_limitation": "Remote Python urllib default User-Agent received Cloudflare 1010/403 from api; retained as a failed probe. Subsequent probe uses the actual Toolbox User-Agent and succeeded. No firewall policy changed.",
+  "strict_roster_enabled": true,
+  "accept_new_lobbies": true,
+  "retired_env_flag_removed": true,
+  "environment_backup": {
+    "status": "APPLIED",
+    "ci_commit": "584e000baf024e381c5bdb3417ad7ac879bebdca",
+    "before_sha256": "d08234fff9f5dc87738bd29129e06ef0aa5f64e6c0f753fa8d5a7dd084441659",
+    "after_sha256": "26e48f4c706f59047ba62def8d09cb1404e4f4d3fa0b0ed0a0f8a3e486673414",
+    "updated_public_settings": {
+      "ACCEPT_NEW_LOBBIES": "true",
+      "CONTROL_PLANE_IMAGE": "ghcr.io/dubnium-105/projectrebound-control-plane:sha-584e000baf024e381c5bdb3417ad7ac879bebdca",
+      "META_SERVER_IMAGE": "ghcr.io/dubnium-105/projectrebound-meta-server:sha-584e000baf024e381c5bdb3417ad7ac879bebdca",
+      "ADMIN_WEB_IMAGE": "ghcr.io/dubnium-105/projectrebound-admin-web:sha-584e000baf024e381c5bdb3417ad7ac879bebdca"
+    },
+    "removed_settings": [
+      "STRICT_ROSTER_V1_ENABLED"
+    ],
+    "admission_seed_bytes": 32,
+    "existing_secrets_preserved": true
+  },
+  "database_backups": [
+    {
+      "bytes": 1692584,
+      "sha256": "25211a35364d0ad6097f562451cfb0e1e5d7247450c20f7c3f0c9e53745feb0a",
+      "pg_restore_list_exit_code": 0,
+      "restore_test": "NOT_RUN"
+    },
+    {
+      "bytes": 1693799,
+      "sha256": "6805fc37363189188d5e920012abdae442a4c2d914a30e6fcedd3caab3e6185c",
+      "pg_restore_list_exit_code": 0,
+      "restore_test": "NOT_RUN"
+    }
+  ],
+  "storage_cleanup": {
+    "removed_unused_project_images": 77,
+    "freed_bytes": 2045927424,
+    "plan_sha256": "dd2c3bb35181aaa2e15fdf5a2011eaef9c14d90c309d2fd9630c5690d03af435",
+    "build_cache_reclaimed_bytes": 0,
+    "data_volumes_deleted": false,
+    "disk_free_after_deployment_bytes": 3698376704
+  },
+  "excluded_node": {
+    "name": "hgh",
+    "status": "BLOCKED",
+    "reason": "Configured host closed SSH twice with exit 255; outside current primary/gateway deployment matrix; not updated."
+  },
+  "native_game_startup": "NOT_RUN_IN_THIS_RECEIPT",
+  "three_physical_machines": "NOT_RUN",
+  "raw_evidence": [
+    {
+      "path": ".tmp/ready-multiplayer-20260908/root/existing-runtime-after-deploy.json",
+      "sha256": "c9a92fe99541ade00246da584371a00ad14bb6064d0a9f893c5c73020d37db2c",
+      "bytes": 9840
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/root/public-routes-after-deploy.json",
+      "sha256": "feada1bb5427e2466a273f2a6e26b2535011f85469bd3e0c82bc3dd25630a6ff",
+      "bytes": 4578
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/root/deploy-run-34196303351.json",
+      "sha256": "4c60c05de6f29128d2f93bd85921455ae37e61f062025cdb7f4287aefe468491",
+      "bytes": 6699
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/root/deploy-run-34196303351.log",
+      "sha256": "ac58be63f07009a6bf1a2427872717bd42a7c8c880d29eb6f2eae939458aedab",
+      "bytes": 166617
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/root/ci-run-34195322102.json",
+      "sha256": "b7ec5fe369069f7bfd6055e59e7181d70d5f02ba9d5a676c255e415b8f901b3d",
+      "bytes": 31974
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/root/ci-run-34195322102.log",
+      "sha256": "ab4cf01a942ff7215d354a11e4fb17bcd8db882337e8825d7f0b75ac85e192bb",
+      "bytes": 2186324
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/root/existing-env-upgrade.json",
+      "sha256": "0a800451bb45717bdb1b7a21a0380398f9289f722c4247a4d120c538bd4765a0",
+      "bytes": 984
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/root/image-cleanup-apply.json",
+      "sha256": "32e0b7a804d18d5cfa9ecad4340e13f0edca90f61f73aacad51d98c8363edddc",
+      "bytes": 59658
+    },
+    {
+      "path": ".tmp/ready-multiplayer-20260908/root/hgh-preflight-receipt.json",
+      "sha256": "cbffb323fff699e55af027c5d11428940d319d83fcea9c49a4bcea985bd8e625",
+      "bytes": 386
+    }
+  ]
+}
