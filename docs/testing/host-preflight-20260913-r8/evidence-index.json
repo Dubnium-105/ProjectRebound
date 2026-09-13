@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "source_commit": "dc0cb49e63bfd92247e7b526909676c68b4c6b7a",
+  "scope": "Only the stated component, build, local preflight and desktop checks; remote native acceptance NOT_RUN",
+  "files": [
+    {
+      "path": "evidence/backend.json",
+      "bytes": 23605,
+      "sha256": "f96b683a5a45359a8bbcca9d507906c64db62357c4a281e49393bbb4015f391e"
+    },
+    {
+      "path": "evidence/build-dependency.json",
+      "bytes": 382,
+      "sha256": "59dc01d347f1fb308a982bccde871cb4bc70d8a1148d01b7f4c4803a17b5a32e"
+    },
+    {
+      "path": "evidence/committed-source-binding.json",
+      "bytes": 12380,
+      "sha256": "cfe3e2cdd1e3ddd062ac9ffcd331a69c371d82d9c78e25fd9826879c0239ee19"
+    },
+    {
+      "path": "evidence/desktop/startup.png",
+      "bytes": 65225,
+      "sha256": "241151916ebf9be276a3c1662f92801a5153065ff07748ee2ac7326a01200809"
+    },
+    {
+      "path": "evidence/desktop/ui-observation.json",
+      "bytes": 624,
+      "sha256": "d6492856c0c5dea889be67892e5a6af80c3ef91452a31975fff454e39aa60c65"
+    },
+    {
+      "path": "evidence/distribution/build-summary.json",
+      "bytes": 430,
+      "sha256": "234076c1f2e15591fb5ceb97647c5286f019659a6ac6aae421506f7aa53346e1"
+    },
+    {
+      "path": "evidence/distribution/package-build-receipt.json",
+      "bytes": 1000,
+      "sha256": "799385c7aa3d452e473df0ceb236fc986265e74e89ae9de088a5c4d1f6a91801"
+    },
+    {
+      "path": "evidence/distribution/payload-signature-receipt.json",
+      "bytes": 1314,
+      "sha256": "fc8e2763d9dcbc602c485c049bc21573935b28406312b5976e905150ffd72e38"
+    },
+    {
+      "path": "evidence/distribution/preflight.json",
+      "bytes": 39258,
+      "sha256": "f4ecad82979390b082c31f2d1795927f544809ca7892d7910a155d0aedeb9888"
+    },
+    {
+      "path": "evidence/distribution/public-metadata.json",
+      "bytes": 4918,
+      "sha256": "2d75b909c7e4e771f141833cc66811b90f1b9671feeebecddd5ba2692d13bf8a"
+    },
+    {
+      "path": "evidence/distribution/strict-candidate.json",
+      "bytes": 1549,
+      "sha256": "b53a76e69f1b8b249ff4e6f859e77519cd6d8c736ffd699d59d21229cc8f056f"
+    },
+    {
+      "path": "evidence/distribution/tauri-build-r8.log",
+      "bytes": 1937,
+      "sha256": "8357a57b7b3daf6d2d9d1c93dba667723a350ec14112580a24f6d5388d3bccd6"
+    },
+    {
+      "path": "evidence/distribution/toolbox-signature-receipt.json",
+      "bytes": 1317,
+      "sha256": "2a879269b7f4b14e799944de16ae3dd3c0e6a20f3b7f20f07c62e34ad18d9f0a"
+    },
+    {
+      "path": "evidence/initial-build-failure/cargo-test.log",
+      "bytes": 490,
+      "sha256": "3c65cd2009db233582fee580ccf0cec638f24698c716682e91a8b1c9dc6de917"
+    },
+    {
+      "path": "evidence/initial-build-failure/execution-receipt.json",
+      "bytes": 1145,
+      "sha256": "453659dd4c76c71910f9d42b39b9b203d9c4da924059a1149a74ac93fb2e2eb6"
+    },
+    {
+      "path": "evidence/remote-r7-preflight-summary.json",
+      "bytes": 1628,
+      "sha256": "7a908feb13716911000aea4f70ea3d63072e059bc5ca50d3b5b6e0db0ebd98f7"
+    },
+    {
+      "path": "evidence/rust/execution-receipt.json",
+      "bytes": 14734,
+      "sha256": "52397b0ff384a2fa7a2babca10a471cce3cb9ebb8637fbda358c2d1a5ef3b367"
+    },
+    {
+      "path": "evidence/rust/fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evidence/rust/rust-lib.log",
+      "bytes": 32103,
+      "sha256": "d4fe6024c6edc7a08839608bb58a28ac6a887b883bd5006fd16c3ca88da9907d"
+    },
+    {
+      "path": "evidence/rust/tauri-fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evidence/rust/tauri-tests.log",
+      "bytes": 2000,
+      "sha256": "7389b6076bc3be61789747418f875303f8c4b9eabd77fb7933270810b8355e10"
+    }
+  ]
+}

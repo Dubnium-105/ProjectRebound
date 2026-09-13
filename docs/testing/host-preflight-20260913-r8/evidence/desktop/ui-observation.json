@@ -1,0 +1,14 @@
+{
+  "observed_at_utc": "2026-09-13T07:26:53.999Z",
+  "app": "process:C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260913-r8\\rebound-hardware-test-20260913-r8-windows-x64\\rebound_toolbox_tauri.exe",
+  "window_title": "ProjectRebound ToolBox",
+  "status": "PASS_REAL_DESKTOP_STARTUP_ONLY",
+  "observations": [
+    "Signed r8 package window was selected by exact executable path",
+    "Launch console and authoritative lobby controls rendered",
+    "No active lobby or native launch started during this check"
+  ],
+  "native_game_launch": "NOT_RUN",
+  "three_machine_admission": "NOT_RUN",
+  "release_ready": false
+}

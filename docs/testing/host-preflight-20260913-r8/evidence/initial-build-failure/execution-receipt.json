@@ -1,0 +1,26 @@
+{
+  "scope": "One targeted Rust regression; no native startup or remote multiplayer execution",
+  "started_at_utc": "2026-09-13T07:01:38.249354+00:00",
+  "finished_at_utc": "2026-09-13T07:01:54.522245+00:00",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--lib",
+    "--features",
+    "vnt",
+    "core::runtime::tests::authority_failure_completion_preserves_nested_cause_and_cleanup_without_leaking_secrets",
+    "--",
+    "--exact"
+  ],
+  "cwd": "C:\\wksp\\ProjectReboundToolbox-clean-candidate-20260909",
+  "isolated_localappdata": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r8\\rust-diagnostic-targeted\\isolated-localappdata",
+  "isolated_appdata": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r8\\rust-diagnostic-targeted\\isolated-appdata",
+  "shared_build_cache": "C:/wksp/ProjectReboundToolbox/target",
+  "exit_code": 101,
+  "test_results": [],
+  "source_sha256": "b9b2f7ff35b6c8260e562c9fbd4508b9c3fd25a23dda3258e601f1da266167e0",
+  "source_stable": true,
+  "log_sha256": "3c65cd2009db233582fee580ccf0cec638f24698c716682e91a8b1c9dc6de917",
+  "status": "FAIL"
+}

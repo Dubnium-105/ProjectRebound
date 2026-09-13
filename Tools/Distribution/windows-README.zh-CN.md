@@ -4,7 +4,13 @@
 
 本包连接现有 `api.project-rebound.space` / `cnapi.project-rebound.space` 与 `meta.project-rebound.space`。确切的已部署后端提交、CI/部署回执和数据库 schema 要求以包清单为准。无需另建测试后端。
 
-r7 将受管运输读取和 VNT 操作改为当前 Match Attempt 的接口；确认成员资格失效后清除旧大厅，并显示带本轮关联的启动失败原因。房主准备和切换队伍按钮继续保留。本轮所有人统一使用 r7 包。
+## 多人测试前安装配套 Payload
+
+便携版 Toolbox EXE 更新**不会安装或替换 Boundary 游戏 Payload**。开始任何多人测试前，先完全退出 Boundary 和所有 Toolbox 窗口；执行包内的 `Install-StrictPayload.ps1 -GameWin64 <实际 Win64 目录>`，再对同一目录执行 `Check-ThisMachine.ps1 -GameWin64 <实际 Win64 目录>`。只有检查报告中的 `status: PASS` 才能继续多人测试；未发现游戏窗口或报告为 `BLOCKED` 都是前置阻塞，不能算测试通过。
+
+如果 `game.payload.present` 为 `BLOCKED`，说明已安装的 Payload 与本包不匹配。本次反馈的 r7 房主机存在这个差异，且游戏窗口没有出现。请对 Toolbox 中配置的同一个游戏目录运行上述安装脚本，然后重新检查。
+
+r8 会在 P2P 房主冻结名单前检查本机运行时，并保留脱敏后的启动失败原因；真正启动原生进程前仍会再次检查。房主准备和切换队伍按钮继续保留。本轮所有人统一使用 r8 包。后端和 Payload 字节不变；多人原生验收仍待完成，`release_ready=false`。
 
 本轮用于三台实机的安装、登录、受管启动和原生准入证据采集。房主使用新增的“采集原生准入证据”按钮；它仍走真实 Steam 身份、冻结名单、签名 allocation、原生 Grant、Reserve/Confirm 和受管清理。
 

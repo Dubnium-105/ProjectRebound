@@ -4,7 +4,13 @@ English | [简体中文](windows-README.zh-CN.md)
 
 This package connects to the existing `api.project-rebound.space` / `cnapi.project-rebound.space` and `meta.project-rebound.space` services. Use the package manifest for the exact deployed backend commit, CI/deployment receipts, and required database schema. No separate test backend is needed.
 
-The r7 update moves managed transport reads and VNT operations to the current Match Attempt. It also clears an obsolete lobby after confirmed membership loss and shows the scoped cause of a failed launch. Owner Ready and team switching remain available. Everyone must use the same r7 package for this round.
+## Install the matching Payload before multiplayer
+
+The portable Toolbox EXE update does **not** install or replace the Boundary game Payload. Before any multiplayer attempt, fully close Boundary and every Toolbox window, run the included `Install-StrictPayload.ps1 -GameWin64 <actual Win64 directory>`, then run `Check-ThisMachine.ps1 -GameWin64 <same Win64 directory>`. Continue only when the check report has `status: PASS`; a missing game window or a `BLOCKED` report blocks multiplayer and is not a test pass.
+
+If `game.payload.present` is `BLOCKED`, the installed Payload does not match this package. The reported r7 host had this mismatch and no game window appeared. Run the installer above against the same game directory configured in Toolbox, then repeat the check.
+
+The r8 client checks the P2P owner's local runtime before freezing the roster and preserves the redacted cause of launch failures. It repeats the runtime checks immediately before native startup. Owner Ready and team switching remain available. Everyone must use the same r8 package for this round. Backend and Payload bytes are unchanged; native multiplayer acceptance remains pending and `release_ready=false`.
 
 This round covers installation, login, managed startup, and native admission proof collection on three physical machines. The owner uses the new **Collect native proof** button. It retains real Steam identities, a frozen roster, signed allocation, native Grants, Reserve/Confirm, and managed cleanup.
 

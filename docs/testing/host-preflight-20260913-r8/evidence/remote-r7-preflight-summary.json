@@ -1,0 +1,44 @@
+{
+  "evidence_class": "user_supplied_remote_preflight",
+  "original_attachment_sha256": "215b947724879626ed24209a8337436178bb0df3eaae88389a1b28b65242e5c9",
+  "generated_at_utc": "2026-09-13T07:11:34.7658444Z",
+  "status": "BLOCKED",
+  "package_manifest_sha256": "369d51f2e6b5641e3d29aab424dc2ec8b5ae300cfea53671c898ebd0f1cd7136",
+  "toolbox_expected_sha256": "a463ad096351d361ae4b046cb26db84bdf6f1eef6725ff3422085eb1c5735262",
+  "check_counts": [
+    {
+      "count": 1,
+      "status": "BLOCKED"
+    },
+    {
+      "count": 44,
+      "status": "PASS"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "game.payload.present",
+      "status": "BLOCKED",
+      "observed": {
+        "bytes": 1021440,
+        "sha256": "295cd8835913f1807195ae7a69ae372480451ec1d93f075304886bc289ffbb07"
+      },
+      "expected": {
+        "sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183"
+      },
+      "note": "Installed Payload was read only; no replacement was attempted."
+    }
+  ],
+  "native_online_admission": {
+    "status": "NOT_RUN",
+    "reason": "This distribution preflight never launches Boundary, connects a Payload pipe, sends a grant, or changes strict/native_verified state."
+  },
+  "safety": {
+    "game_started": false,
+    "dll_replaced": false,
+    "named_pipe_written": false,
+    "credentials_collected": false,
+    "raw_logs_collected": false
+  },
+  "conclusion": "Installed Payload differs from r7 pinned Payload; strict build verification rejects these bytes before MetaTunnel and game process creation. Replacement and retry have not been observed."
+}

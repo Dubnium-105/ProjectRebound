@@ -1,0 +1,8 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox-clean-candidate-20260909)
+error: couldn't read `src\install\../../res/runtime/aria2c.exe`: 系统找不到指定的文件。 (os error 2)
+  --> src\install\aria2.rs:20:32
+   |
+20 | const EMBEDDED_ARIA2C: &[u8] = include_bytes!("../../res/runtime/aria2c.exe");
+   |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: could not compile `rebound_toolbox` (lib test) due to 1 previous error

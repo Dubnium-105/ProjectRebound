@@ -1,0 +1,2 @@
+# Receipt hashes refer to exact recorded bytes, including CRLF and log endings.
+evidence/** binary

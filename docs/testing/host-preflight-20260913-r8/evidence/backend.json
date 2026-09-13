@@ -1,0 +1,739 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-09-13T07:01:17.865405+00:00",
+  "scope": "Read-only remote deployment and service-log aggregate for the supplied r8 lobby/Attempt window; no raw log lines, database rows, or credentials returned.",
+  "log_window_utc": {
+    "since": "2026-09-13T06:45:00Z",
+    "until": "2026-09-13T06:56:00Z"
+  },
+  "logs": [
+    {
+      "container_role": "control_plane",
+      "container": "project-rebound-control-plane-control-plane-1",
+      "docker_exit_code": 0,
+      "window_utc": {
+        "since": "2026-09-13T06:45:00Z",
+        "until": "2026-09-13T06:56:00Z"
+      },
+      "line_count": 612,
+      "raw_bytes": 135182,
+      "raw_sha256": "8cd63c5f9a16427e5639c9a2fa9e3ba733a75606aa691a7bc17f19e4d185f93b",
+      "matching_line_count": 34,
+      "matching_lines_sanitized": [
+        {
+          "timestamp": "2026-09-13T06:51:09.119309664Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 14,
+          "line_index": 197
+        },
+        {
+          "timestamp": "2026-09-13T06:51:10.416448034Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/members/me/ready"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 6,
+          "line_index": 199
+        },
+        {
+          "timestamp": "2026-09-13T06:51:17.403755668Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 5,
+          "line_index": 208
+        },
+        {
+          "timestamp": "2026-09-13T06:51:21.977212997Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 4,
+          "line_index": 221
+        },
+        {
+          "timestamp": "2026-09-13T06:51:27.550292777Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 4,
+          "line_index": 246
+        },
+        {
+          "timestamp": "2026-09-13T06:51:30.589485937Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 6,
+          "line_index": 257
+        },
+        {
+          "timestamp": "2026-09-13T06:51:32.328436078Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/join"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 24,
+          "line_index": 261
+        },
+        {
+          "timestamp": "2026-09-13T06:51:32.639771637Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 12,
+          "line_index": 263
+        },
+        {
+          "timestamp": "2026-09-13T06:51:33.124666936Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 4,
+          "line_index": 265
+        },
+        {
+          "timestamp": "2026-09-13T06:51:33.273275895Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 266
+        },
+        {
+          "timestamp": "2026-09-13T06:51:33.903549953Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/members/me/ready"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 7,
+          "line_index": 269
+        },
+        {
+          "timestamp": "2026-09-13T06:51:36.437113097Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 275
+        },
+        {
+          "timestamp": "2026-09-13T06:51:38.853293145Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 282
+        },
+        {
+          "timestamp": "2026-09-13T06:51:40.39406266Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 288
+        },
+        {
+          "timestamp": "2026-09-13T06:51:42.197781752Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/members/me/ready"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 6,
+          "line_index": 291
+        },
+        {
+          "timestamp": "2026-09-13T06:51:43.894732752Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 298
+        },
+        {
+          "timestamp": "2026-09-13T06:51:44.784651232Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 300
+        },
+        {
+          "timestamp": "2026-09-13T06:51:48.443479567Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 310
+        },
+        {
+          "timestamp": "2026-09-13T06:51:49.393843876Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/start"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 63,
+          "line_index": 313
+        },
+        {
+          "timestamp": "2026-09-13T06:51:51.707330281Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 318
+        },
+        {
+          "timestamp": "2026-09-13T06:51:52.244905033Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 320
+        },
+        {
+          "timestamp": "2026-09-13T06:51:53.386310682Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/allocation"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 20,
+          "line_index": 322
+        },
+        {
+          "timestamp": "2026-09-13T06:51:54.061659439Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 48,
+          "line_index": 323
+        },
+        {
+          "timestamp": "2026-09-13T06:51:55.740953815Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/heartbeat"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 11,
+          "line_index": 329
+        },
+        {
+          "timestamp": "2026-09-13T06:51:56.048800866Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 11,
+          "line_index": 330
+        },
+        {
+          "timestamp": "2026-09-13T06:51:56.426311994Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 4,
+          "line_index": 331
+        },
+        {
+          "timestamp": "2026-09-13T06:51:56.890474226Z",
+          "codes": [
+            "TRANSPORT"
+          ],
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/transport"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 9,
+          "line_index": 332
+        },
+        {
+          "timestamp": "2026-09-13T06:52:00.048373322Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 47,
+          "line_index": 343
+        },
+        {
+          "timestamp": "2026-09-13T06:52:01.387693196Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 15,
+          "line_index": 344
+        },
+        {
+          "timestamp": "2026-09-13T06:52:02.244526713Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/heartbeat"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 7,
+          "line_index": 345
+        },
+        {
+          "timestamp": "2026-09-13T06:52:02.919038696Z",
+          "phases": [
+            "complete"
+          ],
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/complete"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 24,
+          "line_index": 348
+        },
+        {
+          "timestamp": "2026-09-13T06:52:04.747232657Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 354
+        },
+        {
+          "timestamp": "2026-09-13T06:52:05.500466263Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/native-cleared"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 16,
+          "line_index": 356
+        },
+        {
+          "timestamp": "2026-09-13T06:52:11.771058212Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 12,
+          "line_index": 366
+        }
+      ],
+      "endpoint_status_counts": {
+        "/v1/match-lobbies/lby_<redacted>/presence": {
+          "200": 7
+        },
+        "/v1/match-lobbies/lby_<redacted>/members/me/ready": {
+          "200": 3
+        },
+        "/v1/match-lobbies/lby_<redacted>": {
+          "200": 16
+        },
+        "/v1/match-lobbies/lby_<redacted>/join": {
+          "200": 1
+        },
+        "/v1/match-lobbies/lby_<redacted>/start": {
+          "200": 1
+        },
+        "/v1/match-attempts/mat_<redacted>/host/allocation": {
+          "200": 1
+        },
+        "/v1/match-attempts/mat_<redacted>/host/heartbeat": {
+          "200": 2
+        },
+        "/v1/match-attempts/mat_<redacted>/transport": {
+          "200": 1
+        },
+        "/v1/match-attempts/mat_<redacted>/host/complete": {
+          "200": 1
+        },
+        "/v1/match-attempts/mat_<redacted>/host/native-cleared": {
+          "200": 1
+        }
+      },
+      "raw_log_persisted": false,
+      "credentials_or_ids_emitted": false
+    },
+    {
+      "container_role": "meta_server",
+      "container": "project-rebound-control-plane-meta-server-1",
+      "docker_exit_code": 0,
+      "window_utc": {
+        "since": "2026-09-13T06:45:00Z",
+        "until": "2026-09-13T06:56:00Z"
+      },
+      "line_count": 350,
+      "raw_bytes": 76053,
+      "raw_sha256": "dc2fc02bc311188497db60c88452ef3d78d444e083c01155700b9faaacb8d154",
+      "matching_line_count": 0,
+      "matching_lines_sanitized": [],
+      "endpoint_status_counts": {},
+      "raw_log_persisted": false,
+      "credentials_or_ids_emitted": false
+    }
+  ],
+  "deployment": {
+    "docker_ps_exit_code": 0,
+    "project_containers": [
+      {
+        "name": "project-rebound-control-plane-meta-server-1",
+        "image": "ghcr.io/dubnium-105/projectrebound-meta-server:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "image_id": "sha256:6f5e92a55207c0fea3eb9e01f08856d436d80aecd1bfb8b2f2305ce40ca37026",
+        "repo_digests": [
+          "ghcr.io/dubnium-105/projectrebound-meta-server@sha256:6f5e92a55207c0fea3eb9e01f08856d436d80aecd1bfb8b2f2305ce40ca37026"
+        ],
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:20:37.859557763Z",
+        "oci_revision": "8069d5e1126b8a585610b232e721aee45c57ee88"
+      },
+      {
+        "name": "project-rebound-control-plane-grafana-1",
+        "image": "grafana/grafana:11.4.0",
+        "image_id": "sha256:d8ea37798ccc41061a62ab080f2676dda6bf7815558499f901bdb0f533a456fb",
+        "repo_digests": [
+          "grafana/grafana@sha256:d8ea37798ccc41061a62ab080f2676dda6bf7815558499f901bdb0f533a456fb"
+        ],
+        "running": true,
+        "health": null,
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:19:58.75132852Z",
+        "oci_revision": null
+      },
+      {
+        "name": "project-rebound-control-plane-prometheus-1",
+        "image": "prom/prometheus:v2.55.1",
+        "image_id": "sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3",
+        "repo_digests": [
+          "prom/prometheus@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3"
+        ],
+        "running": true,
+        "health": null,
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:19:58.196041527Z",
+        "oci_revision": null
+      },
+      {
+        "name": "project-rebound-control-plane-control-plane-1",
+        "image": "ghcr.io/dubnium-105/projectrebound-control-plane:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "image_id": "sha256:bc98ac6d82427ee352237314ff13989fae776fd0f8dfceda18c2658fe55a2bca",
+        "repo_digests": [
+          "ghcr.io/dubnium-105/projectrebound-control-plane@sha256:bc98ac6d82427ee352237314ff13989fae776fd0f8dfceda18c2658fe55a2bca"
+        ],
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:19:51.972420019Z",
+        "oci_revision": "8069d5e1126b8a585610b232e721aee45c57ee88"
+      },
+      {
+        "name": "project-rebound-control-plane-blackbox-exporter-1",
+        "image": "prom/blackbox-exporter:v0.26.0",
+        "image_id": "sha256:92e05d5fe0df01d3980518dc42f07b778a8997048b57392ebc7f7391ebd7bb06",
+        "repo_digests": [
+          "prom/blackbox-exporter@sha256:92e05d5fe0df01d3980518dc42f07b778a8997048b57392ebc7f7391ebd7bb06"
+        ],
+        "running": true,
+        "health": null,
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:19:49.123575983Z",
+        "oci_revision": null
+      },
+      {
+        "name": "project-rebound-control-plane-admin-web-1",
+        "image": "ghcr.io/dubnium-105/projectrebound-admin-web:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "image_id": "sha256:37fc38d939ca9dbddeabd19d555214c10589889007db18336c2f9e33d5ec1851",
+        "repo_digests": [
+          "ghcr.io/dubnium-105/projectrebound-admin-web@sha256:37fc38d939ca9dbddeabd19d555214c10589889007db18336c2f9e33d5ec1851"
+        ],
+        "running": true,
+        "health": null,
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:19:49.122200936Z",
+        "oci_revision": "8069d5e1126b8a585610b232e721aee45c57ee88"
+      },
+      {
+        "name": "project-rebound-edge-relay-edge-relay-1",
+        "image": "ghcr.io/dubnium-105/projectrebound-edge-relay:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "image_id": "sha256:b82049df5df6c982f747e1ec409812d6af143b298ca8124299f0ea258524370c",
+        "repo_digests": [
+          "ghcr.io/dubnium-105/projectrebound-edge-relay@sha256:b82049df5df6c982f747e1ec409812d6af143b298ca8124299f0ea258524370c"
+        ],
+        "running": true,
+        "health": null,
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:19:25.1395069Z",
+        "oci_revision": "8069d5e1126b8a585610b232e721aee45c57ee88"
+      },
+      {
+        "name": "project-rebound-control-plane-postgres-1",
+        "image": "postgres:17-alpine",
+        "image_id": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+        "repo_digests": [
+          "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
+        ],
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "started_at": "2026-08-28T07:12:57.642675573Z",
+        "oci_revision": null
+      },
+      {
+        "name": "project-rebound-control-plane-redis-1",
+        "image": "redis:7-alpine",
+        "image_id": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+        "repo_digests": [
+          "redis@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf"
+        ],
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "started_at": "2026-08-28T07:12:57.644042026Z",
+        "oci_revision": null
+      },
+      {
+        "name": "project-rebound-control-plane-caddy-1",
+        "image": "caddy:2-alpine",
+        "image_id": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+        "repo_digests": [
+          "caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648"
+        ],
+        "running": true,
+        "health": null,
+        "restart_count": 0,
+        "started_at": "2026-08-12T15:38:16.505276506Z",
+        "oci_revision": null
+      },
+      {
+        "name": "project-rebound-control-plane-minio-1",
+        "image": "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772",
+        "image_id": "sha256:cf3dadcfa1fb0324f43958bad1abba986d53c4ecc04d4d50b46c7dcda28bd3cd",
+        "repo_digests": [
+          "quay.io/minio/minio@sha256:cf3dadcfa1fb0324f43958bad1abba986d53c4ecc04d4d50b46c7dcda28bd3cd"
+        ],
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "started_at": "2026-08-08T17:26:02.180775019Z",
+        "oci_revision": "5c15584ae6aac083b2177faa6dbc43ad1df00e93"
+      }
+    ]
+  },
+  "schema": {
+    "exit_code": 0,
+    "schema_version": "48",
+    "value_emitted_is_schema_version_only": true
+  },
+  "public_http_probes": [
+    {
+      "origin_role": "api.project-rebound.space",
+      "path": "/health/live",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "origin_role": "api.project-rebound.space",
+      "path": "/health/ready",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "origin_role": "api.project-rebound.space",
+      "path": "/v1/client/config",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "origin_role": "api.project-rebound.space",
+      "path": "/v1/p2p-rooms",
+      "http_status": 410,
+      "error_type": "HTTPError"
+    },
+    {
+      "origin_role": "cnapi.project-rebound.space",
+      "path": "/health/ready",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "origin_role": "meta.project-rebound.space",
+      "path": "/health/live",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "origin_role": "meta.project-rebound.space",
+      "path": "/health/ready",
+      "http_status": 200,
+      "error_type": null
+    }
+  ],
+  "assessment": {
+    "backend_scope_requests_observed": [
+      "lobby start",
+      "host allocation",
+      "host heartbeat",
+      "attempt transport projection",
+      "host completion",
+      "host native cleanup acknowledgement"
+    ],
+    "backend_request_status_observed": "HTTP 200 for the scoped request records retained in this aggregate",
+    "backend_failure_code_in_log": "NOT_OBSERVED",
+    "native_stage_error_from_client_report": "strict P2P HOST native process and named pipe action",
+    "backend_root_cause": "NOT_EVIDENCED",
+    "next_required_evidence": "sanitized native supervisor/process-start and named-pipe diagnostics from the host machine"
+  },
+  "native_gameplay": "NOT_RUN",
+  "physical_machine_matrix": "NOT_RUN"
+}

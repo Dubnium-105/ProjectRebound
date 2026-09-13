@@ -1,0 +1,9 @@
+{
+  "started_at_utc": "2026-09-13T07:22:23.003272+00:00",
+  "finished_at_utc": "2026-09-13T07:24:39.105715+00:00",
+  "exit_code": 0,
+  "build_driver": "scripts/build-strict-candidate.ps1 (PowerShell 7)",
+  "source_commit": "dc0cb49e63bfd92247e7b526909676c68b4c6b7a",
+  "log_sha256": "8357a57b7b3daf6d2d9d1c93dba667723a350ec14112580a24f6d5388d3bccd6",
+  "scope": "Production asset build only; native acceptance NOT_RUN"
+}
