@@ -3,6 +3,7 @@
 
 #include "../framework.h"
 #include "../Replication/libreplicate.h"
+#include "../Replication/ListenResultPolicy.h"
 #include "../Replication/ReplicationWorldGatePolicy.h"
 #include <iostream>
 
@@ -51,7 +52,7 @@ void LibReplicate::DoNothing() {
 	return;
 }
 
-void LibReplicate::Listen(void* NetDriver, void* World, EJoinMode InitialJoinMode, int Port) {
+bool LibReplicate::Listen(void* NetDriver, void* World, EJoinMode InitialJoinMode, int Port) {
 	this->JoinMode = InitialJoinMode;
 
 	FURL* URL = (FURL*)(FMemoryMallocFuncPtr(sizeof(FURL), 8));
@@ -64,9 +65,13 @@ void LibReplicate::Listen(void* NetDriver, void* World, EJoinMode InitialJoinMod
 
 	*Error = FString();
 
-	this->InitListenFuncPtr(NetDriver, World, URL, false, Error);
-
-	this->SetWorldFuncPtr(NetDriver, World);
+	return ListenResultPolicy::InitializeAndBind(
+		[this, NetDriver, World, URL, Error]() {
+			return this->InitListenFuncPtr(NetDriver, World, URL, false, Error);
+		},
+		[this, NetDriver, World]() {
+			this->SetWorldFuncPtr(NetDriver, World);
+		});
 }
 
 void LibReplicate::SetJoinMode(EJoinMode NewJoinMode) {

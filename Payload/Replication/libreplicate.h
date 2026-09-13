@@ -159,7 +159,7 @@ public:
 
 	void CreateNetDriver(void* Engine, void* World, void* NetDriverName);
 
-	void Listen(void* NetDriver, void* World, EJoinMode InitialJoinMode, int Port);
+	[[nodiscard]] bool Listen(void* NetDriver, void* World, EJoinMode InitialJoinMode, int Port);
 
 	void SetJoinMode(EJoinMode NewJoinMode);
 

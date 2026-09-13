@@ -103,6 +103,24 @@ enable_strict_warnings(native_match_scope_tests)
 
 add_test(NAME native_match_scope_tests COMMAND native_match_scope_tests)
 
+add_executable(listen_result_policy_tests
+    ListenResultPolicyTests.cpp
+)
+
+target_compile_features(listen_result_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(listen_result_policy_tests)
+
+add_test(NAME listen_result_policy_tests COMMAND listen_result_policy_tests)
+
+add_executable(host_readiness_policy_tests
+    HostReadinessPolicyTests.cpp
+)
+
+target_compile_features(host_readiness_policy_tests PRIVATE cxx_std_20)
+enable_strict_warnings(host_readiness_policy_tests)
+
+add_test(NAME host_readiness_policy_tests COMMAND host_readiness_policy_tests)
+
 add_executable(server_hook_policy_tests
     ServerHookPolicyTests.cpp
 )

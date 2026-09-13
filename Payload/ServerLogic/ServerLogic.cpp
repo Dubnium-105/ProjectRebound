@@ -439,6 +439,9 @@ bool AreServerStreamingLevelsReady(UWorld* const world)
 
 bool CompleteServerListen(UWorld* const World)
 {
+    // A failed native listen must also clear a previous generation's marker;
+    // strict authority publication reads this state after this function returns.
+    listening = false;
     UEngine* const Engine = UEngine::GetEngine();
     if (!World || World != UWorld::GetWorld() || !Engine)
         return false;
@@ -473,7 +476,11 @@ bool CompleteServerListen(UWorld* const World)
     ResetServerMatchStateForWorld(World);
 
     Log("[SERVER] Calling Listen()...");
-    libReplicate->Listen(NetDriver, World, LibReplicate::EJoinMode::Open, Config.Port);
+    if (!libReplicate->Listen(NetDriver, World, LibReplicate::EJoinMode::Open, Config.Port))
+    {
+        Log("[ERROR] Native InitListen failed; server is not listening.");
+        return false;
+    }
     NetDriverAccess::Observe(NetDriver, World, NetDriverAccess::Source::World);
 
     NetDriverAccess::Snapshot snapshot{};
@@ -497,5 +504,6 @@ void StartServer()
     Sleep(8000);
     UWorld* const world = UWorld::GetWorld();
     RequestServerStreamingLevels(world);
-    (void)CompleteServerListen(world);
+    if (!CompleteServerListen(world))
+        Log("[ERROR] Offline server listen did not complete.");
 }

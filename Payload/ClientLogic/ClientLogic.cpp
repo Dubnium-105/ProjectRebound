@@ -1,6 +1,7 @@
 #include "ClientLogic.h"
 
 #include "DirectMatchUiCleanupPolicy.h"
+#include "HostReadinessPolicy.h"
 #include "NativeLoginGrantPolicy.h"
 #include "SeamlessIntroCameraPolicy.h"
 
@@ -155,6 +156,11 @@ namespace
     std::string localWorldInstanceId;
     UWorld* playableWorldIdentity = nullptr;
     std::string playableLocalWorldInstanceId;
+    struct HostReadinessDiagnostic
+    {
+        bool active = false;
+        HostReadinessPolicy::Observation observation{};
+    } hostReadinessDiagnostic;
     std::atomic<bool> ownedSeamlessDestinationUiCleanupPending{false};
     std::atomic<bool> ownedSeamlessDestinationUiCleanupWaitLogged{false};
     std::atomic<bool> ownedSeamlessIntroCameraRecoveryPending{false};
@@ -203,6 +209,84 @@ namespace
         localWorldInstanceId.clear();
         playableWorldIdentity = nullptr;
         playableLocalWorldInstanceId.clear();
+        // Keep the last safe observation after a bounded failure so the
+        // caller can distinguish a missing world from a lost driver/scope.
+        hostReadinessDiagnostic.active = false;
+    }
+
+    void ResetHostReadinessDiagnosticLocked() noexcept
+    {
+        hostReadinessDiagnostic = {};
+    }
+
+    void ObserveHostReadinessLocked(UWorld* const world)
+    {
+        if (!stagedNativeHostScope || !stagedNativeMatchScope)
+            return;
+
+        HostReadinessPolicy::Sample sample;
+        sample.worldPresent = world != nullptr;
+        sample.gameStatePresent = sample.worldPresent && world->GameState != nullptr;
+        sample.netDriverPresent = sample.worldPresent && world->NetDriver != nullptr;
+        sample.driverWorldMatches = sample.netDriverPresent &&
+            world->NetDriver->World == world;
+        sample.owningGameInstancePresent = sample.worldPresent &&
+            world->OwningGameInstance != nullptr;
+        sample.localPlayersPresent = sample.owningGameInstancePresent &&
+            world->OwningGameInstance->LocalPlayers.Num() > 0;
+        const std::string authorityWorldInstanceId =
+            ReadStrictAuthorityWorldInstanceId();
+        sample.authorityScopeMatches = sample.worldPresent &&
+            !authorityWorldInstanceId.empty() &&
+            authorityWorldInstanceId == stagedNativeMatchScope->worldInstanceId;
+
+        HostReadinessPolicy::Observe(
+            hostReadinessDiagnostic.observation, sample);
+        hostReadinessDiagnostic.active = true;
+    }
+
+    json HostReadinessSampleToJson(
+        const HostReadinessPolicy::Sample& sample,
+        const bool worldReady)
+    {
+        return json{
+            {"world_present", sample.worldPresent},
+            {"game_state_present", sample.gameStatePresent},
+            {"net_driver_present", sample.netDriverPresent},
+            {"driver_world_matches", sample.driverWorldMatches},
+            {"authority_scope_matches", sample.authorityScopeMatches},
+            {"owning_game_instance_present", sample.owningGameInstancePresent},
+            {"local_players_present", sample.localPlayersPresent},
+            {"world_ready", worldReady}
+        };
+    }
+
+    json HostReadinessDiagnosticToJsonLocked()
+    {
+        const auto& observation = hostReadinessDiagnostic.observation;
+        json firstNotReady = HostReadinessSampleToJson(
+            observation.firstNotReady, observation.firstNotReady.IsWorldReady());
+        firstNotReady["observed"] = observation.firstNotReadyObserved;
+        firstNotReady["reason"] = observation.firstNotReadyObserved
+            ? HostReadinessPolicy::LossReasonName(observation.firstNotReadyReason)
+            : "";
+        json firstLost = HostReadinessSampleToJson(
+            observation.firstLost, observation.firstLost.IsWorldReady());
+        firstLost["observed"] = observation.firstLostObserved;
+        firstLost["reason"] = observation.firstLostObserved
+            ? HostReadinessPolicy::LossReasonName(observation.firstLostReason)
+            : "";
+        return json{
+            {"active", hostReadinessDiagnostic.active},
+            {"observed", observation.observed},
+            {"current", HostReadinessSampleToJson(
+                observation.current, observation.current.IsWorldReady())},
+            {"ever", HostReadinessSampleToJson(
+                observation.ever, observation.everWorldReady)},
+            {"ever_world_ready", observation.everWorldReady},
+            {"first_not_ready", std::move(firstNotReady)},
+            {"first_lost", std::move(firstLost)}
+        };
     }
 
     std::string ObserveLocalWorldLocked(UWorld* const world)
@@ -1512,6 +1596,7 @@ bool QueueConnectToMatch(const std::string& target)
             return false;
 
         ClearStagedNativeLoginGrantLocked();
+        ResetHostReadinessDiagnosticLocked();
         ClearNativeMatchScopeLocked();
         pendingTarget = target;
         connectStage = ConnectStage::Queued;
@@ -1682,6 +1767,7 @@ namespace
         else
         {
             ClearStagedNativeLoginGrantLocked();
+            ResetHostReadinessDiagnosticLocked();
             ClearNativeMatchScopeLocked();
             pendingTarget = target;
             stagedNativeLoginGrant = std::string(joinGrant);
@@ -1805,9 +1891,11 @@ nlohmann::json StageLocalAuthorityClientScope(
         }
 
         ClearStagedNativeLoginGrantLocked();
+        ResetHostReadinessDiagnosticLocked();
         ClearNativeMatchScopeLocked();
         stagedNativeMatchScope = *scope;
         stagedNativeHostScope = true;
+        hostReadinessDiagnostic.active = true;
         stagedNativeConnectionNonce = std::string(nativeConnectionNonce);
         localAuthorityClientScopePending = true;
         localNativePawnReady = false;
@@ -2044,6 +2132,12 @@ void PumpPendingClientCommands()
     } pumpingGuard(pumping);
 
     UWorld* const world = UWorld::GetWorld();
+    {
+        std::lock_guard<std::mutex> lock(connectMutex);
+        // Sample on the game thread before the local-player early return so
+        // a missing world/GameState/driver remains visible at timeout.
+        ObserveHostReadinessLocked(world);
+    }
     if (world == nullptr || world->OwningGameInstance == nullptr ||
         world->OwningGameInstance->LocalPlayers.Num() == 0)
     {
@@ -2154,6 +2248,9 @@ void PumpPendingClientCommands()
             connectStage == ConnectStage::Playable;
         if (watchingTravel)
         {
+            // Native loadout/frontend work above can dispatch engine events.
+            // Refresh the diagnostic beside the actual readiness decision.
+            ObserveHostReadinessLocked(world);
             if (stagedNativeHostScope)
             {
                 destinationWorldReady = world->GameState != nullptr &&
@@ -2269,6 +2366,27 @@ void PumpPendingClientCommands()
                 connectStage = ConnectStage::Failed;
                 lastConnectError = destinationWorldReady
                     ? "playable_pawn_timeout" : "world_ready_timeout";
+                if (stagedNativeHostScope &&
+                    hostReadinessDiagnostic.observation.observed)
+                {
+                    const auto& current =
+                        hostReadinessDiagnostic.observation.current;
+                    std::ostringstream readiness;
+                    readiness << "; host_readiness="
+                        << "world:" << (current.worldPresent ? 1 : 0)
+                        << ",game_state:" << (current.gameStatePresent ? 1 : 0)
+                        << ",net_driver:" << (current.netDriverPresent ? 1 : 0)
+                        << ",driver_world:" << (current.driverWorldMatches ? 1 : 0)
+                        << ",authority_scope:" <<
+                            (current.authorityScopeMatches ? 1 : 0)
+                        << ",game_instance:" <<
+                            (current.owningGameInstancePresent ? 1 : 0)
+                        << ",local_players:" <<
+                            (current.localPlayersPresent ? 1 : 0)
+                        << ",ever_world_ready:" <<
+                            (hostReadinessDiagnostic.observation.everWorldReady ? 1 : 0);
+                    lastConnectError += readiness.str();
+                }
                 pendingTarget.reset();
                 nativeTicketDeadline = {};
                 ClearStagedNativeLoginGrantLocked();
@@ -2478,6 +2596,7 @@ nlohmann::json GetClientMatchStatus()
             ? confirmedNativeConnectionNonce
             : (stagedNativeHostScope ? stagedNativeConnectionNonce : std::string{})},
         {"local_world_instance_id", localWorldInstanceId},
+        {"host_readiness", HostReadinessDiagnosticToJsonLocked()},
         {"last_error", lastConnectError}
     };
 }
