@@ -1,0 +1,8 @@
+AssertionError: ('ensure_authenticated_after_rotation', 1, '', 'Error: ensure_authenticated did not return the current rotated token\n')
+Traceback (most recent call last):
+  File "C:\wksp\ProjectRebound\.tmp\ready-multiplayer-20260913\r11\auth-before\run_mode.py", line 11, in <module>
+    result = suite.scenario(driver, mode)
+  File "C:\wksp\ProjectReboundToolbox-clean-candidate-20260909\tests\auth_http_concurrency.py", line 115, in scenario
+    assert result.returncode == 0, (mode, result.returncode, result.stdout, result.stderr)
+           ^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('ensure_authenticated_after_rotation', 1, '', 'Error: ensure_authenticated did not return the current rotated token\n')

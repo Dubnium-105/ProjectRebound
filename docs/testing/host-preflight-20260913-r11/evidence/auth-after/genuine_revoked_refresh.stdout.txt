@@ -1,0 +1,16 @@
+{
+  "case": "genuine_revoked_refresh",
+  "status": "EXPECTED_REJECTION",
+  "driver_exit_code": 1,
+  "actual_http_counts": {
+    "old_401": 1,
+    "refresh": 1,
+    "protected_success": 0,
+    "users_me_success": 0,
+    "logout": 0,
+    "wrong_purpose_401": 0,
+    "revoked_refresh_401": 1,
+    "foreign_credential": 0
+  },
+  "driver_result": "Error: EXPECTED_REJECTION: genuine SESSION_REVOKED refresh was rejected and did not rotate credentials"
+}

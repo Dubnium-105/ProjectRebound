@@ -1,0 +1,17 @@
+# r11: repair launch cancellation after credential rotation
+
+English | [简体中文](README.zh-CN.md)
+
+The r10 two-machine test failed: HOST renewal received `401 SESSION_REVOKED`, native startup was cancelled, and abort also received 401. The member later reached `P2P_HOST_RECONNECT_TIMEOUT`. Backend evidence correlates with normal ROTATED credential use and no refresh reuse in the target window. The exact request-to-session link is not logged, and these records do not independently establish a game crash. See the [reported failure and source cause](evidence/native/reported-r10-failure-and-source-cause.json) and [read-only backend receipt](evidence/backend.json).
+
+R11 retains bounded SHA-256 fingerprints of issued player credentials for the current account epoch, preserving one-time retry eligibility after ordinary rotation. Profile validation and launch renewal return/use current account credentials. Logout, account changes, actual revocation and unknown credential purposes remain rejected; strict roster and native admission checks stay enforced. Cross-process refresh serialization remains unimplemented and unverified in this change.
+
+Toolbox `06350349da2b9ef9d2a680f6654888e3f1f74779`; deployed Backend `8069d5e1126b8a585610b232e721aee45c57ee88`; Payload source `98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d`. No backend redeployment or Payload byte change occurred. Later Main commits are not deployment facts. [Source binding](evidence/committed-source-binding.json) checks actual tested hashes against final source; the test parent and final commit are different.
+
+Actual execution: 364 Rust and 9 Tauri tests passed, zero failed or ignored; both format checks passed. [Final real HTTP fixtures](evidence/auth-final/final-receipt.json) bind a clean commit: six cases PASS and three negative cases EXPECTED_REJECTION. Both new regressions failed against the [old auth implementation](evidence/auth-before/before-receipt.json). The initial [format failure](evidence/rust-initial-format/execution-receipt.json) and corrected [fixture count assertion](evidence/auth-after/after-receipt.json) remain recorded. Unrun work is never a pass.
+
+The production build, signed package byte checks, 45 file preflight checks and [real desktop startup](evidence/desktop/ui-observation.json) passed. The UI still displays a failed version check, which is not counted as passed. This Toolbox commit has zero Actions, check runs or commit statuses, so CI is [NOT_RUN](evidence/ci-toolbox.json). Main CI is checked separately after pushing the documentation commit.
+
+Package `rebound-hardware-test-20260913-r11-windows-x64.zip`: 23,540,605 bytes, SHA-256 `45d581a497e98606ab5e8b3bb688be07adb18f6545f48bfad05d82267c29573a`. The test certificate is not in the default trusted root store; no root trust changes or private keys are included. See the [package receipt](evidence/distribution/package-build-receipt.json), [52-item append](52-item-r11-append-delta.json) and [evidence index](evidence-index.json).
+
+All machines must fully exit old Toolbox versions, use r11 and create a fresh lobby. Confirm teams, have every player including the owner click Ready, then use Collect native proof. At least three independent Steam-account machines still need to validate native admission, spawn/control, cleanup and a second match. These r11 physical steps are NOT_RUN; `release_ready=false` and `native_authority_admission_verified=false`. Empty credentials, disabling strict roster or manual open cannot establish acceptance.

@@ -1,0 +1,65 @@
+{
+  "schema": "project-rebound.r11.auth-after.v2",
+  "overall_status": "POSITIVE_CASES_PASS_EXPECTED_NEGATIVE_REJECTIONS",
+  "recorded_at_utc": "2026-09-13T12:25:42Z",
+  "scope": "isolated loopback synthetic auth HTTP and encrypted local config only; no production account, Steam, native game, or backend mutation",
+  "build": {
+    "command": "cargo build --locked --features vnt,lab-testing --bin auth_http_concurrency",
+    "status": "PASS",
+    "log": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-after\\build.log",
+    "log_sha256": "38b57909a965414aeef3626e182703afb03c38c71dd070d08563093f68a76448",
+    "target": "target/debug/auth_http_concurrency.exe",
+    "binary": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-after\\auth_http_concurrency-after.exe",
+      "bytes": 6434816,
+      "sha256": "6c629129ae9e444fae3efe0594fc4982e08fb1555b4bf5bb36f90f0f5aa6d613"
+    },
+    "source_binding_note": "The binary was built before the root agent's cargo fmt pass. No exact compile-time source snapshot was separately saved; the nearby pre-format snapshot is recorded in r11/rust-initial-format/execution-receipt.json. The current post-format helper hash is reported separately and is not claimed as the binary's compile-time hash."
+  },
+  "source_observation": {
+    "candidate": "C:\\wksp\\ProjectReboundToolbox-clean-candidate-20260909",
+    "head": "642760be87439cea10f4b57f8b7368197e845d45",
+    "worktree_clean": false,
+    "current_dirty_paths": [
+      "helper/auth_http_concurrency.rs",
+      "src/core/runtime.rs",
+      "src/security/auth.rs",
+      "tests/auth_http_concurrency.py"
+    ],
+    "current_sha256_after_fmt_and_fixture": {
+      "helper/auth_http_concurrency.rs": "5355814f807e86b87f1b8479e003b2042755641144a271d316d814ae9b0103a2",
+      "tests/auth_http_concurrency.py": "58eccb375f70879f979830af87aadc678987c1d283c05bf8787ba798c3933710",
+      "src/security/auth.rs": "27f1ebd2a38308a6031232456e004e55f14cdaf242b3ad077a16aeeaabfaf492",
+      "src/api/infrastructure/http.rs": "b627b9201f6fa06cb9fdd0fcaa863aa0d6b0fca19c85c31922053a8f00fea52d",
+      "src/core/runtime.rs": "db018fcaa73780e440b0fe03b948d4f4d9150e4e87dec5ea516c697e389220c9"
+    },
+    "helper_pre_format_nearby_sha256": "54192774f2bff1b42a5e104500cf366dd11a67d7bdbeda5da3eef104d0e6cd20",
+    "pre_format_observation": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\rust-initial-format\\execution-receipt.json",
+    "auth_http_scope": "auth.rs contains the root auth edits in this after build; http.rs remained at the recorded baseline hash."
+  },
+  "fixture_command": "python -X utf8 per-mode runner; each mode uses a fresh temporary LOCALAPPDATA/config root and a loopback HTTP server",
+  "cases": [
+    {"mode": "late_after_rotation", "status": "PASS", "driver_exit_code": 0, "http_counts": {"old_401": 1, "refresh": 1, "protected_success": 1, "users_me_success": 0, "logout": 0, "wrong_purpose_401": 0, "revoked_refresh_401": 0, "foreign_credential": 0}, "stdout": "late_after_rotation.stdout.txt", "stderr": "late_after_rotation.stderr.txt", "executed": true},
+    {"mode": "ensure_authenticated_after_rotation", "status": "PASS", "driver_exit_code": 0, "http_counts": {"old_401": 1, "refresh": 1, "protected_success": 0, "users_me_success": 1, "logout": 0, "wrong_purpose_401": 0, "revoked_refresh_401": 0, "foreign_credential": 0}, "stdout": "ensure_authenticated_after_rotation.stdout.txt", "stderr": "ensure_authenticated_after_rotation.stderr.txt", "executed": true},
+    {"mode": "genuine_revoked_refresh", "status": "EXPECTED_REJECTION", "driver_exit_code": 1, "http_counts": {"old_401": 1, "refresh": 1, "protected_success": 0, "users_me_success": 0, "logout": 0, "wrong_purpose_401": 0, "revoked_refresh_401": 1, "foreign_credential": 0}, "stdout": "genuine_revoked_refresh.stdout.txt", "stderr": "genuine_revoked_refresh.stderr.txt", "executed": true},
+    {"mode": "rotation_then_logout", "status": "EXPECTED_REJECTION", "driver_exit_code": 1, "http_counts": {"old_401": 1, "refresh": 1, "protected_success": 0, "users_me_success": 0, "logout": 1, "wrong_purpose_401": 0, "revoked_refresh_401": 0, "foreign_credential": 0}, "stdout": "rotation_then_logout.stdout.txt", "stderr": "rotation_then_logout.stderr.txt", "executed": true},
+    {"mode": "rotation_then_switch", "status": "EXPECTED_REJECTION", "driver_exit_code": 1, "http_counts": {"old_401": 1, "refresh": 1, "protected_success": 0, "users_me_success": 0, "logout": 0, "wrong_purpose_401": 0, "revoked_refresh_401": 0, "foreign_credential": 0}, "stdout": "rotation_then_switch.stdout.txt", "stderr": "rotation_then_switch.stderr.txt", "executed": true},
+    {"mode": "concurrent", "status": "PASS", "driver_exit_code": 0, "http_counts": {"old_401": 20, "refresh": 1, "protected_success": 20, "users_me_success": 0, "logout": 0, "wrong_purpose_401": 0, "revoked_refresh_401": 0, "foreign_credential": 0}, "stdout": "concurrent.stdout.txt", "stderr": "concurrent.stderr.txt", "executed": true},
+    {"mode": "logout", "status": "PASS", "driver_exit_code": 0, "http_counts": {"old_401": 1, "refresh": 1, "protected_success": 0, "users_me_success": 0, "logout": 1, "wrong_purpose_401": 0, "revoked_refresh_401": 0, "foreign_credential": 0}, "stdout": "logout.stdout.txt", "stderr": "logout.stderr.txt", "executed": true},
+    {"mode": "switch", "status": "PASS", "driver_exit_code": 0, "http_counts": {"old_401": 1, "refresh": 1, "protected_success": 0, "users_me_success": 0, "logout": 0, "wrong_purpose_401": 0, "revoked_refresh_401": 0, "foreign_credential": 0}, "stdout": "switch.stdout.txt", "stderr": "switch.stderr.txt", "executed": true},
+    {"mode": "wrong_purpose", "status": "PASS", "driver_exit_code": 0, "http_counts": {"old_401": 0, "refresh": 0, "protected_success": 0, "users_me_success": 0, "logout": 0, "wrong_purpose_401": 1, "revoked_refresh_401": 0, "foreign_credential": 0}, "stdout": "wrong_purpose.stdout.txt", "stderr": "wrong_purpose.stderr.txt", "executed": true}
+  ],
+  "negative_mode_policy": "The three negative modes must remain EXPECTED_REJECTION; they are not upgraded to PASS even though the Python wrapper exits successfully after verifying the rejection.",
+  "initial_harness_mismatch": {
+    "status": "CORRECTED_AND_RETAINED",
+    "cause": "The first after run used old_401=0 for ensure_authenticated_after_rotation; the driver had already succeeded with old_401=1, refresh=1, users_me_success=1.",
+    "stdout": "ensure_authenticated_after_rotation.initial-assertion-mismatch.stdout.txt",
+    "stderr": "ensure_authenticated_after_rotation.initial-assertion-mismatch.stderr.txt"
+  },
+  "artifacts": {
+    "driver": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-after\\auth_http_concurrency-after.exe",
+    "runner": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-after\\run_mode.py",
+    "mode_results": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-after\\mode-results.json",
+    "outputs_are_separate_per_mode": true
+  }
+}

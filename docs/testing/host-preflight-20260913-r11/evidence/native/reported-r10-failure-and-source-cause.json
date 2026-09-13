@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "reported_release": "r10",
+  "reported_result": "FAILED",
+  "scope": "User-reported two-machine run; backend read-only correlation and isolated HTTP reproductions; no independently replayed Boundary native trace",
+  "first_explicit_failure": "HOST launch keepalive HTTP 401 SESSION_REVOKED; subsequent HOST abort also received HTTP 401",
+  "reported_host_outcome": "Startup was cancelled; client and authority windows disappeared; local cleanup remained pending",
+  "reported_member_outcome": "No game launch; terminal P2P_HOST_RECONNECT_TIMEOUT",
+  "source_cause": [
+    "After a same-account access-token rotation completed, session_epoch_for_token recognized only the newest persisted token. Later calls carrying an older genuine player lease lost eligibility for the one-time auth retry.",
+    "ensure_authenticated could refresh during users/me validation but return the obsolete pre-validation lease.",
+    "HOST keepalive captured one token for presence and heartbeat, allowing normal rotation between the requests. Long-running launch and abort could retain an older token too."
+  ],
+  "backend_correlation": {
+    "normal_rotation_at_utc": "2026-09-13T12:01:33.566Z",
+    "target_heartbeat_401_at_utc": "2026-09-13T12:01:35.065684907Z",
+    "target_abort_401_at_utc": "2026-09-13T12:01:37.063176437Z",
+    "window_refresh_reuse_events": 0,
+    "window_rotated_session_usage_events": 3,
+    "limit": "The exact request-to-session foreign key is not logged; revocation cause is correlated in the target time window, not directly joined per request."
+  },
+  "implemented": [
+    "Remember bounded SHA-256 fingerprints of actually issued or persisted player tokens for the current account epoch, preserving one-time retry eligibility after normal rotation.",
+    "Return the current same-epoch lease after authenticated profile synchronization.",
+    "Acquire an access-token lease for HOST and MEMBER renewal and recheck cancellation and account epoch."
+  ],
+  "invariants": [
+    "Unknown, dedicated and node credentials never acquire player retry eligibility.",
+    "Logout, account switch and actual refresh revocation remain failures.",
+    "No changes to strict roster, grant verification, PID ownership, native admission or cleanup confirmation."
+  ],
+  "r11_native_authority_admission": "NOT_RUN",
+  "r11_playable_acceptance": "NOT_RUN",
+  "release_ready": false
+}

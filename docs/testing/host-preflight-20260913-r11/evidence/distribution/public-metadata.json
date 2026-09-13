@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "purpose": "hardware-test-only",
+  "release_ready": false,
+  "package_id": "rebound-hardware-test-20260913-r11",
+  "supersedes_package": "rebound-hardware-test-20260913-r10",
+  "candidate_change": "r10 host startup was cancelled after SESSION_REVOKED and its abort also failed authentication. r11 preserves known player-token provenance across same-account rotation, returns the current lease after profile refresh, and acquires a current scoped lease for launch keepalive. Strict roster, credential-purpose and account-epoch checks remain enforced. Physical native acceptance has not run.",
+  "source_commits": {
+    "ProjectRebound": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+    "Toolbox": "06350349da2b9ef9d2a680f6654888e3f1f74779"
+  },
+  "source_scope": "ProjectRebound identifies the unchanged Payload source; the independently deployed Backend source is recorded below. The current Main HEAD is not a deployment fact.",
+  "project_rebound_main_head_at_assembly": "8c518b5818aa4760bb1d7ce38bddddda9f234657",
+  "backend_candidate_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+  "backend_implementation_source_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+  "backend_deployment_status": "PASS_EXISTING_BACKEND_DEPLOYMENT_ONLY",
+  "backend_schema_required": 48,
+  "backend_schema_observed": 48,
+  "backend_ci_url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34247644433",
+  "backend_deployment_url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34250303094",
+  "backend_health_evidence": {
+    "path": "r11/backend/r11-attempt-evidence.json",
+    "sha256": "804db4f471be479bd0f65a80e861d13b0aa033016992b4c10e336ea7e9a7cc96",
+    "observed_at_utc": "2026-09-13T12:27:28Z",
+    "status": "PASS_READ_ONLY_HEALTH_EVIDENCE",
+    "deployed_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+    "runtime_roles": [
+      {
+        "role": "control_plane",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "role": "meta_server",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "role": "edge_relay",
+        "running": true,
+        "health": "no_healthcheck"
+      }
+    ],
+    "public_probe_count": 6,
+    "public_probe_http_200_count": 6,
+    "mutation": "none"
+  },
+  "service_origins": [
+    "https://api.project-rebound.space",
+    "https://cnapi.project-rebound.space",
+    "https://meta.project-rebound.space"
+  ],
+  "meta_logic_endpoint": {
+    "address": "logic.project-rebound.space:443",
+    "protocol": "TLS TCP",
+    "tls_server_name": "logic.project-rebound.space"
+  },
+  "deployment_receipt_sha256": "c5a3fb6b4a42267a5fd0b1ae46dcb20e1ab00f3ebc6e1a77afc90618218e9e0d",
+  "r10_predecessor_package": {
+    "package_id": "rebound-hardware-test-20260913-r10",
+    "zip_sha256": "98d5e2ab6706fdcbecc0909475be5ef961385277142b437b186499b48631c802",
+    "zip_bytes": 23538523,
+    "immutable": true
+  },
+  "r10_failure_evidence": {
+    "path": "r11/native/reported-r10-failure-and-source-cause.json",
+    "sha256": "355c5a22067c27e84deed5694b634ad03193de2c86be8a043a2e6ef284214f78",
+    "reported_release": "r10",
+    "reported_result": "FAILED",
+    "r11_native_authority_admission": "NOT_RUN",
+    "r11_playable_acceptance": "NOT_RUN",
+    "scope": "User-reported two-machine run; backend read-only correlation and isolated HTTP reproductions; no independently replayed Boundary native trace"
+  },
+  "ipc_protocol": "strict-roster-v2",
+  "feature_mode": "Tauri custom-protocol, embedded assets, product features, no lab-testing",
+  "pinned_game": {
+    "filename": "ProjectBoundarySteam-Win64-Shipping.exe",
+    "sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "bytes": 102362112
+  },
+  "msvc_minimum_version": "14.50.35717",
+  "strict_payload_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+  "required_artifacts": {
+    "windows-x64": [
+      {
+        "path": "Payload.dll",
+        "bytes": 2098488,
+        "sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183"
+      },
+      {
+        "path": "rebound_toolbox_tauri.exe",
+        "bytes": 49495864,
+        "sha256": "207d1009ef8b6973a72fb9b00bfe46afff5c2553e02235bf1036210a95e3375d"
+      }
+    ]
+  },
+  "signatures": {
+    "payload": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "9897aaa4b58286c308b07fa05f52c9125000144cce14de247467cf1d7b3509e4",
+      "output_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+      "output_bytes": 2098488,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    },
+    "toolbox": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "6cbc1de23c7d25ce4519ae1966b8de02e7daf1474710f18b175ce8771cde1f69",
+      "output_sha256": "207d1009ef8b6973a72fb9b00bfe46afff5c2553e02235bf1036210a95e3375d",
+      "output_bytes": 49495864,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    }
+  },
+  "native_connection_collection": {
+    "status": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES",
+    "entry_point": "Owner: Collect native proof; all three frozen seats must be real Steam sessions"
+  },
+  "native_online_acceptance": {
+    "status": "BLOCKED",
+    "reason": "r11 has no independent three-machine native proof yet. The historical r10 SESSION_REVOKED failure evidence cannot promote this package to playable."
+  },
+  "permitted_test_scope": [
+    "reversible installation",
+    "package and dependency checks",
+    "Toolbox and native login",
+    "three-machine managed native admission collection",
+    "managed cleanup and second cold-start collection"
+  ],
+  "distribution_kind": "portable test delta over a complete existing Rebound runtime",
+  "publication": {
+    "updater_published": false,
+    "externally_uploaded": false
+  }
+}

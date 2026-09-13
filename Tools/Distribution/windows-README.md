@@ -10,9 +10,9 @@ The portable Toolbox EXE update does **not** install or replace the Boundary gam
 
 If `game.payload.present` is `BLOCKED`, the installed Payload does not match this package. Run the installer above against the same game directory configured in Toolbox, then repeat the check.
 
-The reported r9 run reached `authority_ready`, but the main client named-pipe transaction returned Windows OS error 231 and native startup failed. The r10 candidate shortens that transaction and releases pipe ownership while preserving strict native admission. It does not bypass native checks. R10 native multiplayer results must be collected again; desktop startup or reaching `authority_ready` alone does not establish a pass.
+The reported r10 run received `SESSION_REVOKED` during startup and then cancelled the game launch; backend records correlate with normal login credential rotation. R11 repairs retry eligibility for old requests after rotation and returns current session credentials for account validation and launch renewal. Actual revocation, logout, account changes and strict native admission checks remain enforced. R11 native multiplayer results must be collected again; desktop startup or reaching `authority_ready` alone does not establish a pass.
 
-The runtime checks before roster freezing and native startup, Owner Ready, and team switching remain available. Everyone must use the same r10 package for this round. The package binds the existing deployed backend version and unchanged Payload bytes; `release_ready=false`.
+The runtime checks before roster freezing and native startup, Owner Ready, and team switching remain available. Everyone must use the same r11 package for this round, fully exit old versions and create a new lobby. The package binds the existing deployed backend version and unchanged Payload bytes; `release_ready=false`.
 
 This round covers installation, login, managed startup, and native admission proof collection on three physical machines. The owner uses the new **Collect native proof** button. It retains real Steam identities, a frozen roster, signed allocation, native Grants, Reserve/Confirm, and managed cleanup.
 

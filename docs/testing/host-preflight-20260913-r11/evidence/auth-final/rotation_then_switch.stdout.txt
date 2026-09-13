@@ -1,0 +1,16 @@
+{
+  "case": "rotation_then_switch",
+  "status": "EXPECTED_REJECTION",
+  "driver_exit_code": 1,
+  "actual_http_counts": {
+    "old_401": 1,
+    "refresh": 1,
+    "protected_success": 0,
+    "users_me_success": 0,
+    "logout": 0,
+    "wrong_purpose_401": 0,
+    "revoked_refresh_401": 0,
+    "foreign_credential": 0
+  },
+  "driver_result": "Error: EXPECTED_REJECTION: old same-session lease was rejected after rotation_then_switch crossed the session epoch"
+}

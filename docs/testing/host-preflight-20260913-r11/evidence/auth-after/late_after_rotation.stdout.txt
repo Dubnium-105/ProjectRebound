@@ -1,0 +1,16 @@
+{
+  "case": "late_after_rotation",
+  "status": "PASS",
+  "driver_exit_code": 0,
+  "actual_http_counts": {
+    "old_401": 1,
+    "refresh": 1,
+    "protected_success": 1,
+    "users_me_success": 0,
+    "logout": 0,
+    "wrong_purpose_401": 0,
+    "revoked_refresh_401": 0,
+    "foreign_credential": 0
+  },
+  "driver_result": "PASS: a late request from the old player lease reused the rotated token in the same session"
+}

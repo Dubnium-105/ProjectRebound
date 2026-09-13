@@ -1,0 +1,216 @@
+{
+  "schema": "project-rebound.r11.auth-final.v1",
+  "recorded_at_utc": "2026-09-13T12:32:12.8775218Z",
+  "overall_status": "POSITIVE_CASES_PASS_EXPECTED_NEGATIVE_REJECTIONS",
+  "scope": "isolated loopback synthetic auth HTTP and encrypted local config only; no production account, Steam, native game, or backend mutation",
+  "source": {
+    "candidate": "C:\\wksp\\ProjectReboundToolbox-clean-candidate-20260909",
+    "commit": "06350349da2b9ef9d2a680f6654888e3f1f74779",
+    "tree": "2d213f528c46bbaac5b5cc760d84c75cf9a09758",
+    "clean_before_build": true,
+    "clean_after_build": true,
+    "tracked_source_file_count": 107,
+    "source_before": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-final\\source-before.json",
+    "source_after": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-final\\source-after.json",
+    "source_before_sha256": "d2a431c887397275e8ea8e2f95467ed87b6519e43f97ab61abe677b083d5fe8c",
+    "source_after_sha256": "0f8770476c84608018bb828462fa0a687f175d245d7481c912d001242bafd221",
+    "source_sha256_equal": true,
+    "source_hash_differences": [],
+    "test_harness_sha256": "58eccb375f70879f979830af87aadc678987c1d283c05bf8787ba798c3933710",
+    "test_harness_git_blob": "17b6015adbc4e5ffa448b22a8913f1223495b67e"
+  },
+  "build": {
+    "command": "cargo build --locked --features vnt,lab-testing --bin auth_http_concurrency",
+    "status": "PASS",
+    "log": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-final\\build.log",
+    "log_sha256": "8c75493030921dd8ec99563ecc7da29cba349fd7f61b83243d9f0f23173e8b09",
+    "binary": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-final\\auth_http_concurrency-final.exe",
+    "binary_bytes": 6434816,
+    "binary_sha256": "3da7486f0477566a4c3585a96fe61b36d9f5fbb5d97b45f17a6d77f509e16f7b"
+  },
+  "fixture": {
+    "command": "python -B -X utf8 per-mode runner",
+    "runner": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-final\\run_mode.py",
+    "mode_results": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-final\\mode-results.json",
+    "cases": [
+      {
+        "mode": "late_after_rotation",
+        "status": "PASS",
+        "driver_exit_code": 0,
+        "http_counts": {
+          "old_401": 1,
+          "refresh": 1,
+          "protected_success": 1,
+          "users_me_success": 0,
+          "logout": 0,
+          "wrong_purpose_401": 0,
+          "revoked_refresh_401": 0,
+          "foreign_credential": 0
+        },
+        "stdout": "late_after_rotation.stdout.txt",
+        "stderr": "late_after_rotation.stderr.txt",
+        "executed": true
+      },
+      {
+        "mode": "ensure_authenticated_after_rotation",
+        "status": "PASS",
+        "driver_exit_code": 0,
+        "http_counts": {
+          "old_401": 1,
+          "refresh": 1,
+          "protected_success": 0,
+          "users_me_success": 1,
+          "logout": 0,
+          "wrong_purpose_401": 0,
+          "revoked_refresh_401": 0,
+          "foreign_credential": 0
+        },
+        "stdout": "ensure_authenticated_after_rotation.stdout.txt",
+        "stderr": "ensure_authenticated_after_rotation.stderr.txt",
+        "executed": true
+      },
+      {
+        "mode": "genuine_revoked_refresh",
+        "status": "EXPECTED_REJECTION",
+        "driver_exit_code": 1,
+        "http_counts": {
+          "old_401": 1,
+          "refresh": 1,
+          "protected_success": 0,
+          "users_me_success": 0,
+          "logout": 0,
+          "wrong_purpose_401": 0,
+          "revoked_refresh_401": 1,
+          "foreign_credential": 0
+        },
+        "stdout": "genuine_revoked_refresh.stdout.txt",
+        "stderr": "genuine_revoked_refresh.stderr.txt",
+        "executed": true
+      },
+      {
+        "mode": "rotation_then_logout",
+        "status": "EXPECTED_REJECTION",
+        "driver_exit_code": 1,
+        "http_counts": {
+          "old_401": 1,
+          "refresh": 1,
+          "protected_success": 0,
+          "users_me_success": 0,
+          "logout": 1,
+          "wrong_purpose_401": 0,
+          "revoked_refresh_401": 0,
+          "foreign_credential": 0
+        },
+        "stdout": "rotation_then_logout.stdout.txt",
+        "stderr": "rotation_then_logout.stderr.txt",
+        "executed": true
+      },
+      {
+        "mode": "rotation_then_switch",
+        "status": "EXPECTED_REJECTION",
+        "driver_exit_code": 1,
+        "http_counts": {
+          "old_401": 1,
+          "refresh": 1,
+          "protected_success": 0,
+          "users_me_success": 0,
+          "logout": 0,
+          "wrong_purpose_401": 0,
+          "revoked_refresh_401": 0,
+          "foreign_credential": 0
+        },
+        "stdout": "rotation_then_switch.stdout.txt",
+        "stderr": "rotation_then_switch.stderr.txt",
+        "executed": true
+      },
+      {
+        "mode": "concurrent",
+        "status": "PASS",
+        "driver_exit_code": 0,
+        "http_counts": {
+          "old_401": 20,
+          "refresh": 1,
+          "protected_success": 20,
+          "users_me_success": 0,
+          "logout": 0,
+          "wrong_purpose_401": 0,
+          "revoked_refresh_401": 0,
+          "foreign_credential": 0
+        },
+        "stdout": "concurrent.stdout.txt",
+        "stderr": "concurrent.stderr.txt",
+        "executed": true
+      },
+      {
+        "mode": "logout",
+        "status": "PASS",
+        "driver_exit_code": 0,
+        "http_counts": {
+          "old_401": 1,
+          "refresh": 1,
+          "protected_success": 0,
+          "users_me_success": 0,
+          "logout": 1,
+          "wrong_purpose_401": 0,
+          "revoked_refresh_401": 0,
+          "foreign_credential": 0
+        },
+        "stdout": "logout.stdout.txt",
+        "stderr": "logout.stderr.txt",
+        "executed": true
+      },
+      {
+        "mode": "switch",
+        "status": "PASS",
+        "driver_exit_code": 0,
+        "http_counts": {
+          "old_401": 1,
+          "refresh": 1,
+          "protected_success": 0,
+          "users_me_success": 0,
+          "logout": 0,
+          "wrong_purpose_401": 0,
+          "revoked_refresh_401": 0,
+          "foreign_credential": 0
+        },
+        "stdout": "switch.stdout.txt",
+        "stderr": "switch.stderr.txt",
+        "executed": true
+      },
+      {
+        "mode": "wrong_purpose",
+        "status": "PASS",
+        "driver_exit_code": 0,
+        "http_counts": {
+          "old_401": 0,
+          "refresh": 0,
+          "protected_success": 0,
+          "users_me_success": 0,
+          "logout": 0,
+          "wrong_purpose_401": 1,
+          "revoked_refresh_401": 0,
+          "foreign_credential": 0
+        },
+        "stdout": "wrong_purpose.stdout.txt",
+        "stderr": "wrong_purpose.stderr.txt",
+        "executed": true
+      }
+    ],
+    "negative_modes": [
+      "genuine_revoked_refresh",
+      "rotation_then_logout",
+      "rotation_then_switch"
+    ],
+    "negative_status_policy": "EXPECTED_REJECTION is retained as a negative result and is never rewritten as PASS",
+    "all_modes_executed": true
+  },
+  "predecessor_receipts": {
+    "before": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-before\\before-receipt.json",
+    "after": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-after\\after-receipt.json"
+  },
+  "initial_harness_mismatch": {
+    "stdout": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-final\\ensure_authenticated_after_rotation.initial-assertion-mismatch.stdout.txt",
+    "stderr": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-final\\ensure_authenticated_after_rotation.initial-assertion-mismatch.stderr.txt",
+    "status": "CORRECTED_AND_RETAINED"
+  }
+}

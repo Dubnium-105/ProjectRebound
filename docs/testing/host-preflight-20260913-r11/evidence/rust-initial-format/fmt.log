@@ -1,0 +1,34 @@
+Diff in \\?\C:\wksp\ProjectReboundToolbox-clean-candidate-20260909\helper\auth_http_concurrency.rs:106:
+             let epoch = old.session_epoch();
+             let rotated = auth::refresh_after_rejection(old.token())?;
+             ensure!(
+-                rotated.session_epoch() == epoch
+-                    && rotated.token() == "synthetic-new-access",
++                rotated.session_epoch() == epoch && rotated.token() == "synthetic-new-access",
+                 "fixture rotation did not establish the new same-session pair"
+             );
+             let old_token = old.token().to_owned();
+Diff in \\?\C:\wksp\ProjectReboundToolbox-clean-candidate-20260909\helper\auth_http_concurrency.rs:119:
+             while !started.exists() && Instant::now() < until {
+                 std::thread::sleep(Duration::from_millis(10));
+             }
+-            ensure!(started.exists(), "old-token request did not reach the fixture");
++            ensure!(
++                started.exists(),
++                "old-token request did not reach the fixture"
++            );
+             if mode == "rotation_then_logout" {
+                 auth::logout().context("logout after same-session token rotation")?;
+             } else {
+Diff in \\?\C:\wksp\ProjectReboundToolbox-clean-candidate-20260909\helper\auth_http_concurrency.rs:133:
+                     Ok(())
+                 })?;
+             }
+-            std::fs::write(root.join("release-old-request"), b"continue synthetic response")?;
++            std::fs::write(
++                root.join("release-old-request"),
++                b"continue synthetic response",
++            )?;
+             ensure!(
+                 worker
+                     .join()

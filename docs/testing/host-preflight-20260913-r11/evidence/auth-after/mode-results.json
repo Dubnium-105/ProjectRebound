@@ -1,0 +1,56 @@
+[
+  {
+    "mode": "late_after_rotation",
+    "exit_code": 0,
+    "stdout": "late_after_rotation.stdout.txt",
+    "stderr": "late_after_rotation.stderr.txt"
+  },
+  {
+    "mode": "ensure_authenticated_after_rotation",
+    "exit_code": 0,
+    "stdout": "ensure_authenticated_after_rotation.stdout.txt",
+    "stderr": "ensure_authenticated_after_rotation.stderr.txt"
+  },
+  {
+    "mode": "genuine_revoked_refresh",
+    "exit_code": 0,
+    "stdout": "genuine_revoked_refresh.stdout.txt",
+    "stderr": "genuine_revoked_refresh.stderr.txt"
+  },
+  {
+    "mode": "rotation_then_logout",
+    "exit_code": 0,
+    "stdout": "rotation_then_logout.stdout.txt",
+    "stderr": "rotation_then_logout.stderr.txt"
+  },
+  {
+    "mode": "rotation_then_switch",
+    "exit_code": 0,
+    "stdout": "rotation_then_switch.stdout.txt",
+    "stderr": "rotation_then_switch.stderr.txt"
+  },
+  {
+    "mode": "concurrent",
+    "exit_code": 0,
+    "stdout": "concurrent.stdout.txt",
+    "stderr": "concurrent.stderr.txt"
+  },
+  {
+    "mode": "logout",
+    "exit_code": 0,
+    "stdout": "logout.stdout.txt",
+    "stderr": "logout.stderr.txt"
+  },
+  {
+    "mode": "switch",
+    "exit_code": 0,
+    "stdout": "switch.stdout.txt",
+    "stderr": "switch.stderr.txt"
+  },
+  {
+    "mode": "wrong_purpose",
+    "exit_code": 0,
+    "stdout": "wrong_purpose.stdout.txt",
+    "stderr": "wrong_purpose.stderr.txt"
+  }
+]

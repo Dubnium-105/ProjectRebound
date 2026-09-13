@@ -1,0 +1,56 @@
+{
+  "schema": "project-rebound.r11.auth-before.v2",
+  "overall_status": "REGRESSION_REPRODUCED",
+  "generated_at_utc": "2026-09-13T12:17:47.5620554Z",
+  "scope": "isolated loopback synthetic auth HTTP and encrypted local config only; no production account, Steam, native game, or backend mutation",
+  "build": {
+    "command": "cargo build --locked --features vnt,lab-testing --bin auth_http_concurrency",
+    "status": "PASS",
+    "console_log_saved": false,
+    "console_log_note": "The successful cargo completion was observed in the task console; no standalone build log was claimed.",
+    "target": "target/debug/auth_http_concurrency.exe",
+    "binary": {
+      "path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-before\\auth_http_concurrency-before.exe",
+      "bytes": 6366208,
+      "sha256": "8f07fcf529e19cc8239a6b2f737cb37a8a0d83d2b8b75191e1ba00e404017731"
+    }
+  },
+  "source_at_compile": {
+    "candidate": "C:\\wksp\\ProjectReboundToolbox-clean-candidate-20260909",
+    "head": "642760be87439cea10f4b57f8b7368197e845d45",
+    "worktree_clean": false,
+    "known_dirty_paths_at_compile": [
+      "helper/auth_http_concurrency.rs",
+      "src/core/runtime.rs",
+      "tests/auth_http_concurrency.py"
+    ],
+    "auth_rs_sha256": "85e789d1a1a250836676928fb0c9183705b6b97f388a9810a7768a3408b1faf5",
+    "http_rs_sha256": "b627b9201f6fa06cb9fdd0fcaa863aa0d6b0fca19c85c31922053a8f00fea52d",
+    "helper_rs_sha256": "5fb0ce3eebe4a27f7d1a6fe03798ddf49a034adb021833e1c397a410af45479a",
+    "test_py_sha256": "201b6a6e9e8717539cccb5aa0d1aa990a50bb8e4bf2622103be83b41cefea70c",
+    "runtime_rs_sha256": "c1d12f2751c7d28f7251f97ff73ba3c96ef0d35d6c65acb5967f54c9c0e63b55",
+    "auth_rs_git_blob": "fe92041a9b8e8e944cbdd90f6ea75af535ec9a5a",
+    "http_rs_git_blob": "50b16b1c875d45543885512a2eb437e78a3b64bd",
+    "auth_http_match_head": true,
+    "binding_note": "auth.rs and http.rs matched the HEAD blobs at before compilation; the worktree was not clean because independent runtime/helper/test edits were present."
+  },
+  "cases": [
+    {"mode": "late_after_rotation", "exit_code": 1, "status": "FAILED_REGRESSION_REPRODUCED", "stdout": "late_after_rotation.stdout.txt", "stderr": "late_after_rotation.stderr.txt", "executed": true},
+    {"mode": "ensure_authenticated_after_rotation", "exit_code": 1, "status": "FAILED_REGRESSION_REPRODUCED", "stdout": "ensure_authenticated_after_rotation.stdout.txt", "stderr": "ensure_authenticated_after_rotation.stderr.txt", "executed": true},
+    {"mode": "concurrent", "exit_code": 0, "status": "PASS", "stdout": "concurrent.stdout.txt", "stderr": "concurrent.stderr.txt", "executed": true},
+    {"mode": "logout", "exit_code": 0, "status": "PASS", "stdout": "logout.stdout.txt", "stderr": "logout.stderr.txt", "executed": true},
+    {"mode": "switch", "exit_code": 0, "status": "PASS", "stdout": "switch.stdout.txt", "stderr": "switch.stderr.txt", "executed": true},
+    {"mode": "wrong_purpose", "exit_code": 0, "status": "PASS", "stdout": "wrong_purpose.stdout.txt", "stderr": "wrong_purpose.stderr.txt", "executed": true}
+  ],
+  "post_compile_source_changes": [
+    "helper/auth_http_concurrency.rs was later extended with explicit negative modes; those modes are not represented by this before binary.",
+    "tests/auth_http_concurrency.py was later extended with explicit negative modes; those modes are not represented by this before fixture.",
+    "src/security/auth.rs and src/core/runtime.rs may contain subsequent parent-agent edits; before binding above remains the compile-time observation."
+  ],
+  "artifacts": {
+    "driver": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-before\\auth_http_concurrency-before.exe",
+    "runner": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-before\\run_mode.py",
+    "mode_results": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\r11\\auth-before\\mode-results.json",
+    "outputs_are_separate_per_mode": true
+  }
+}

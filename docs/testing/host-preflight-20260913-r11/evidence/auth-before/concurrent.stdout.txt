@@ -1,0 +1,14 @@
+{
+  "case": "concurrent",
+  "status": "PASS",
+  "driver_exit_code": 0,
+  "actual_http_counts": {
+    "old_401": 20,
+    "refresh": 1,
+    "protected_success": 20,
+    "users_me_success": 0,
+    "logout": 0,
+    "wrong_purpose_401": 0
+  },
+  "driver_result": "PASS: 20 concurrent real HTTP 401 requests retried with the rotated credential"
+}

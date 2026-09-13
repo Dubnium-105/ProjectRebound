@@ -1,0 +1,16 @@
+{
+  "case": "ensure_authenticated_after_rotation",
+  "status": "PASS",
+  "driver_exit_code": 0,
+  "actual_http_counts": {
+    "old_401": 1,
+    "refresh": 1,
+    "protected_success": 0,
+    "users_me_success": 1,
+    "logout": 0,
+    "wrong_purpose_401": 0,
+    "revoked_refresh_401": 0,
+    "foreign_credential": 0
+  },
+  "driver_result": "PASS: ensure_authenticated returned the current token after same-session rotation"
+}

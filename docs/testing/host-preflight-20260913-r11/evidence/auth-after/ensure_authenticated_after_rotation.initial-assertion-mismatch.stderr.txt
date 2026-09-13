@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "C:\wksp\ProjectRebound\.tmp\ready-multiplayer-20260913\r11\auth-after\run_mode.py", line 10, in <module>
+    result = suite.scenario(driver, mode)
+  File "C:\wksp\ProjectReboundToolbox-clean-candidate-20260909\tests\auth_http_concurrency.py", line 146, in scenario
+    assert counts["old_401"] == 0 and counts["protected_success"] == 0 and counts["users_me_success"] == 1, counts
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'old_401': 1, 'refresh': 1, 'protected_success': 0, 'users_me_success': 1, 'logout': 0, 'wrong_purpose_401': 0, 'revoked_refresh_401': 0, 'foreign_credential': 0}

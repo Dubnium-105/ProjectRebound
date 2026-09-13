@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "source_commit": "06350349da2b9ef9d2a680f6654888e3f1f74779",
+  "reviewer": "independent native_launch_r8 subagent",
+  "status": "PASS_SOURCE_REVIEW",
+  "scope": ["src/security/auth.rs", "src/core/runtime.rs"],
+  "findings": [
+    "No new authorization escalation, deadlock or blocking issue found in this diff.",
+    "Registry records only tokens read from authenticated config or issued leases, with bounded SHA-256 fingerprints and account-epoch isolation.",
+    "Logout and account switches retain epoch rejection; unknown credentials do not borrow player authentication.",
+    "Config writes acquire the provenance mutex, but no provenance-to-config lock nesting was found."
+  ],
+  "remaining_risk": "Cross-process refresh serialization has not been implemented or validated in this change. A cross-process old lease with no local provenance fails closed. The backend target time window showed normal ROTATED usage and no refresh reuse.",
+  "native_validation": "NOT_RUN",
+  "release_ready": false
+}

@@ -1,0 +1,16 @@
+{
+  "case": "logout",
+  "status": "PASS",
+  "driver_exit_code": 0,
+  "actual_http_counts": {
+    "old_401": 1,
+    "refresh": 1,
+    "protected_success": 0,
+    "users_me_success": 0,
+    "logout": 1,
+    "wrong_purpose_401": 0,
+    "revoked_refresh_401": 0,
+    "foreign_credential": 0
+  },
+  "driver_result": "PASS: logout during actual pending refresh rejects its late response"
+}
