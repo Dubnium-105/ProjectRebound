@@ -668,3 +668,18 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - 固定 Payload `GetClientMatchStatus` 在未建立或已清除作用域时输出 `scope={}`、`playable_scope={}`。Toolbox 原 `Option<MatchJoinScope>` 会把 `{}` 当完整对象解码并报缺字段。r13 仅对这两个诊断字段把空对象、null、缺失规范化为 None；非空残缺对象仍严格拒绝，不能产生 Playable 或后端确认。原生约 90 秒的本地 authority 等待超时会清空作用域，诊断应保留真实 last_error，不能改成成功。
 - 原候选发布把所有本机 IPv4 标为 LAN，但 Backend 8069 的 LAN 只接受私网 IPv4。r13 按同一规则分类，拒绝无效和链路本地地址，正确处理 IPv4-mapped IPv6；有效 STUN SRFLX 优先，同一连接每类仅发布一个候选。不要把两种不同 SRFLX 端点用同一 foundation 连续发布，否则会破坏稳定重放。
 - r13 旧解析器回归实际重现缺 attempt_id；修复后 Rust 372 项与 Tauri 9 项、包括真实 Windows 命名管道组件回归通过，失败和忽略均为 0。此结果只证明组件契约，不能替代三机原生准入、出生操作、清理和第二局验收；证据归档于 `docs/testing/host-preflight-20260913-r13/`，`native_authority_admission_verified` 保持 false。
+
+## 36. r13 World 超时与 r14 首次原生管道启动（2026-09-13）
+
+- r13 实机反馈中 HOST 已到 `authority_ready`，约 90 秒后出现 `world_ready_timeout`；MEMBER 已到 `transport_ready`，随后因 HOST 终止而取消。后端只读聚合存在成功 LAN check，不能把清理后的 `selected_path=NONE` 当作从未选路。该轮原生 World 未就绪的具体条件仍未知，不能将修复包描述为双机入场已经通过。
+- 本机同轮 MEMBER 日志确认原生 CMDFW 已开始监听、原生登录和配装初始化已推进，但未出现管道客户端连接、签名加入排队或受管旅行分派。旧 Toolbox 在首次 PID 绑定管道之前等待通用可见窗口稳定；本轮没有捕获实际 `IsHungAppWindow` 返回值，因此“窗口稳定条件阻止握手”仍是待实机验证的假设。
+- Toolbox `33fec346d55ca85836e26f9447a86c05a8b92eab` 在严格 HOST/MEMBER 启动中优先建立所属原生 PID 的管道，首次 bootstrap 最长 180 秒，只对不存在/忙碌的管道做有界重试；PID 不符、权限和配置错误立即失败。进程退出、取消与系统错误窗口仍中止启动，后续原生登录、签名 allocation/Grant、完整作用域及 Playable 门禁保持严格。
+- Payload `e99eedf698dcb224735e18b45f278c55f16b03b8` 修复了 `InitListen` 实际返回值被上层丢弃的源码缺陷：失败时不调用后续 SetWorld，不发布 listening 成功。此缺陷已确认，但没有证据证明它就是上述实机超时的原因。HOST 在实际 World 判断处记录当前/曾见事实、曾完整就绪及首次丢失条件；超时错误附带固定布尔字段，不输出指针、票据或用户标识。
+- r14 实际通过 Rust/Tauri 388 项、原生组件 26 项及 45 项包/环境预检，失败/忽略/跳过均为 0；7 项真实 Windows 管道回归包含延迟监听、取消、PID 不符。开发过程曾有 6 通过/1 失败的断言回执，保留为失败，不并入最终通过。
+- r14 签名 Payload SHA-256 为 `fe848b3752def0b7d47ad7153e1bb24aa49487be5ebdbb26cf0ae4e2fbf8efdd`，已在固定 EXE SHA 下安装并验证旧 DLL 备份；包内两端都需更新 DLL。Toolbox 进程路径已观测，但桌面窗口自动化恢复失败，桌面内容验证为 `BLOCKED_DESKTOP_UI_OBSERVATION`。两次原生冷启动、三机准入/出生/移动射击/重连和第二局均 `NOT_RUN`；证据归档于 `docs/testing/host-preflight-20260913-r14/`，`native_authority_admission_verified=false`。
+
+### 交付前复核与 r14b 修正（2026-09-14）
+
+- r14 候选在交付前被源码复核拒绝，原 ZIP 与上述测试/安装记录保留，不作为修复版分发。`CompleteServerListen` 在原生调用前仍通过 `Observe(ObjectScan)` 写入并缓存 World/NetDriver；`IsAuthoritativeListeningWorld` 只检查结构，未检查原生监听实际成功，存在失败驱动误报 ready 的路径。
+- r14b 仅在原生 Listen 成功后发布 NetDriver，authority-ready 同时要求原子监听成功标记和既有 GameMode/World/driver/ServerConnection 条件。成功标记在开始新 Listen 前清除；原生部分初始化不再仅凭结构通过。该补修不证明 r13 的 World 超时已在实机修复，亦不改变 RoundState 的开局前空闲语义。
+- 最终构建、安装哈希和验收记录归档于 `docs/testing/host-preflight-20260913-r14b/`。两次原生冷启动、多人出生/移动射击/重连和第二局没有实际证据时继续 `NOT_RUN`。

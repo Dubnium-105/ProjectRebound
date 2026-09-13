@@ -340,3 +340,10 @@ Get-FileHash -Algorithm SHA256 -LiteralPath $sourceDll, $targetDll, $backupDll
 6. 若连接/启动失败，保留同一 lobby、attempt、route generation 的脱敏日志，按顺序检查：服务端清单 revision 和 ready 状态、attempt/grant 签发、受管 P2P room 投影、carrier barrier、Payload authority-ready、auto-launch。错误后若日志紧跟旧房间命令，应直接判定 fail-closed 边界被破坏。
 7. 发布 ToolBox 时上传签名后的原始 EXE，安装 path 必须逐字为小写 `rebound_toolbox.exe` 且 `compression=none`。同版本 `vnt-runtime-manifest.json` 只作为服务器校验 sidecar；发布后重新读取公开 Manifest，必须恰好一个文件且不能包含 sidecar。否则客户端会返回 `manifest must contain only uncompressed rebound_toolbox.exe`。
 8. 最低双机验收：双方退出所有旧 Toolbox 后强制升级到 0.9.12 或更高；创建全新 P2P 大厅；确认两个权威席位和队伍分配；owner 冻结同一 revision；双方 carrier-ready 后自动启动；进入同一战局看到彼此并完成移动、射击。把双方日志和服务端 attempt 状态作为同一次验收证据，未完成实机步骤时不得标记生产通过。
+
+## 17. r14 管道与 World 就绪诊断
+
+1. 两端退出旧 Toolbox 和 Boundary，使用同一 r14 包安装配套 Payload，再运行包内预检。仅替换 Toolbox EXE 不会更新游戏目录中的 DLL；保留安装脚本生成的旧 DLL 备份和哈希回执。
+2. 严格 HOST/MEMBER 首次管道 bootstrap 直接校验所属原生进程 PID，最长等待 180 秒。界面显示 `Payload IPC` 表示仍在这一步；随后才等待原生登录及签名准入。进程窗口出现不是握手或加入成功证据，不能手工 open。
+3. HOST 若出现 `world_ready_timeout; host_readiness=...`，保留固定布尔字段及同轮服务端 `InitListen`/post-travel 文字。区分当前 GameState、NetDriver、driver-world、authority-scope 条件和 `ever_world_ready`；不能把不同时间分别出现的条件拼成一次完整就绪。
+4. `Native InitListen failed; server is not listening.` 是原生调用真实失败；它与首次 RoundState 的 `InvalidState` 空闲语义无关。没有该轮实机观测时，不推断 InitListen 就是 World 超时根因。两次原生冷启动、多人入场和可操作性必须单独记录，组件/包预检不替代这些步骤。

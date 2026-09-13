@@ -7,6 +7,7 @@
 #include "../ServerLogic/DedicatedMultiMatch.h"
 #include "../ServerLogic/DedicatedMultiMatchPolicy.h"
 #include "../Replication/libreplicate.h"
+#include "../Replication/ListenResultPolicy.h"
 #include "../Loadout/LoadoutManager.h"
 #include "../BattleLog/BattleLogExtractor.h"
 #include "../SDK/Engine_parameters.hpp"
@@ -53,7 +54,7 @@ float ReplicationFlushAccumulator = 0.0f;
 // LateJoinManager instance (constructed later in MainThread after dependencies are ready)
 LateJoinManager *gLateJoinManager = nullptr;
 
-bool listening = false;
+std::atomic_bool listening{false};
 static UWorld *ObservedServerWorld = nullptr;
 static std::uint64_t ServerMatchGeneration = 0;
 
@@ -441,7 +442,7 @@ bool CompleteServerListen(UWorld* const World)
 {
     // A failed native listen must also clear a previous generation's marker;
     // strict authority publication reads this state after this function returns.
-    listening = false;
+    listening.store(false, std::memory_order_release);
     UEngine* const Engine = UEngine::GetEngine();
     if (!World || World != UWorld::GetWorld() || !Engine)
         return false;
@@ -468,7 +469,6 @@ bool CompleteServerListen(UWorld* const World)
         return false;
     }
 
-    NetDriverAccess::Observe(NetDriver, World, NetDriverAccess::Source::ObjectScan);
     Log("[SERVER] NetDriver created successfully.");
 
     // Establish the map generation before accepting PostLogin. This also
@@ -481,15 +481,28 @@ bool CompleteServerListen(UWorld* const World)
         Log("[ERROR] Native InitListen failed; server is not listening.");
         return false;
     }
+    // Native InitListen is the success boundary.  Only after it succeeds may
+    // the bootstrap scan bind an otherwise unbound driver to this world.
+    NetDriverAccess::Observe(NetDriver, World, NetDriverAccess::Source::ObjectScan);
     NetDriverAccess::Observe(NetDriver, World, NetDriverAccess::Source::World);
 
     NetDriverAccess::Snapshot snapshot{};
-    if (NetDriverAccess::TryGetSnapshot(snapshot, false))
+    const bool hasSnapshot = NetDriverAccess::TryGetSnapshot(snapshot, false);
+    const bool publishListening = ListenResultPolicy::ShouldPublishListening(
+        true,
+        World->AuthorityGameMode != nullptr,
+        hasSnapshot && snapshot.NetDriver == NetDriver,
+        hasSnapshot && snapshot.World == World && snapshot.WorldMatches,
+        hasSnapshot && snapshot.ServerConnection == nullptr);
+    if (!publishListening)
     {
-        Log("[SERVER] NetDriver exposed via source: " + std::string(NetDriverAccess::ToString(snapshot.LastSource)));
+        listening.store(false, std::memory_order_release);
+        Log("[ERROR] Native listen completed but authoritative NetDriver structure is incomplete; server is not listening.");
+        return false;
     }
 
-    listening = true;
+    Log("[SERVER] NetDriver exposed via source: " + std::string(NetDriverAccess::ToString(snapshot.LastSource)));
+    listening.store(true, std::memory_order_release);
 
     Log("[SERVER] Server is now listening.");
     return true;

@@ -40,6 +40,25 @@ int main()
     Expect(successfulCalls == std::vector<int>{1, 2},
         "world binding must follow successful native initialization");
 
+    Expect(!ListenResultPolicy::ShouldPublishListening(
+        false, true, true, true, true),
+        "a failed native listen must never publish the listening marker");
+    Expect(!ListenResultPolicy::ShouldPublishListening(
+        true, false, true, true, true),
+        "authority game mode is required before publishing the listening marker");
+    Expect(!ListenResultPolicy::ShouldPublishListening(
+        true, true, false, true, true),
+        "a NetDriver is required before publishing the listening marker");
+    Expect(!ListenResultPolicy::ShouldPublishListening(
+        true, true, true, false, true),
+        "the observed world must match before publishing the listening marker");
+    Expect(!ListenResultPolicy::ShouldPublishListening(
+        true, true, true, true, false),
+        "a server connection must be absent before publishing the listening marker");
+    Expect(ListenResultPolicy::ShouldPublishListening(
+        true, true, true, true, true),
+        "a successful native listen with all authority facts may publish the marker");
+
     std::cout << "listen result policy tests passed\n";
     return 0;
 }

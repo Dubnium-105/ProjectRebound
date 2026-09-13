@@ -26,6 +26,7 @@
 #include "safetyhook/safetyhook.hpp"
 #include "Libs/json.hpp"
 #include "Replication/libreplicate.h"
+#include "Replication/ListenResultPolicy.h"
 #include "ServerLogic/LateJoinManager.h"
 #include "ServerLogic/DedicatedMultiMatch.h"
 #include "Communication/CommandFramework.h"
@@ -728,21 +729,30 @@ bool IsAuthoritativeListeningWorld(UWorld* world, std::string& detail)
     const bool hasSnapshot =
         NetDriverAccess::TryGetSnapshot(snapshot, false);
     const bool hasAuthorityGameMode = world && world->AuthorityGameMode;
+    const bool hasNetDriver = hasSnapshot && snapshot.NetDriver != nullptr;
     const bool worldMatches = hasSnapshot && snapshot.World == world &&
         snapshot.WorldMatches;
-    const bool listeningDriver = hasSnapshot &&
-        snapshot.NetDriver && snapshot.ServerConnection == nullptr;
-    const bool listening = listeningDriver;
+    const bool serverConnectionAbsent = hasSnapshot &&
+        snapshot.ServerConnection == nullptr;
+    const bool listenSuccessMarker =
+        ::listening.load(std::memory_order_acquire);
+    const bool publishable = ListenResultPolicy::ShouldPublishListening(
+        listenSuccessMarker,
+        hasAuthorityGameMode,
+        hasNetDriver,
+        worldMatches,
+        serverConnectionAbsent);
 
     std::ostringstream output;
     output << "authority_game_mode=" << (hasAuthorityGameMode ? 1 : 0)
-           << " net_driver=" << (hasSnapshot && snapshot.NetDriver ? 1 : 0)
+           << " net_driver=" << (hasNetDriver ? 1 : 0)
            << " world_matches=" << (worldMatches ? 1 : 0)
            << " server_connection="
            << (hasSnapshot && snapshot.ServerConnection ? 1 : 0)
-           << " listening=" << (listening ? 1 : 0);
+           << " listen_marker=" << (listenSuccessMarker ? 1 : 0)
+           << " listening=" << (publishable ? 1 : 0);
     detail = output.str();
-    return hasAuthorityGameMode && worldMatches && listeningDriver && listening;
+    return publishable;
 }
 
 bool ApplyNativeRpcFrameLimitPatch(uintptr_t moduleBase)
@@ -1308,7 +1318,7 @@ void PumpStrictAuthorityStartOnGameThread()
                     {
                         listenCompleted = CompleteServerListen(world);
                         if (!listenCompleted)
-                            authorityDetail = "native NetDriver could not be created for the new world";
+                            authorityDetail = "native NetDriver creation or listen initialization failed for the new world";
                     }
                 }
                 catch (...)

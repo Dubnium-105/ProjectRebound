@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <vector>
 #include <cstdint>
 #include <unordered_map>
@@ -8,7 +9,7 @@
 class LateJoinManager;
 
 // Global server state
-extern bool listening;
+extern std::atomic_bool listening;
 extern std::vector<SDK::APlayerController *> playerControllersPossessed;
 extern int NumPlayersJoined;
 extern float PlayerJoinTimerSelectFuck;
