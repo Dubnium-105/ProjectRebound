@@ -1,0 +1,92 @@
+{
+  "schema_version": "r13-carrier-source-contract-v1",
+  "status": "RECORDED_READ_ONLY_PENDING_TOOLBOX_FIX",
+  "observed_at_utc": "2026-09-13T14:20:15Z",
+  "scope": {
+    "backend_deployment": "8069d5e1126b8a585610b232e721aee45c57ee88",
+    "toolbox_baseline": "a9d010fd9cdf9f7cb9c45c00afd9c2072289ab9d",
+    "native_acceptance": "NOT_RUN",
+    "source_modified_by_receipt": false,
+    "secrets_recorded": false
+  },
+  "backend_validator": {
+    "deployment_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+    "source_path": "Backend/internal/connection/service.go",
+    "source_sha256": "f887d5d2e4143a4e15a765a0907164ac7b220d2ba1cb883e0131629b1003afe2",
+    "function": "validateCandidate",
+    "source_line_range": "626-676",
+    "error_contract": "Invalid connection candidate. with fixed field-detail categories",
+    "rules": {
+      "connection_id": "required after trim",
+      "foundation": "must match the backend foundation pattern",
+      "candidate_type": [
+        "LAN",
+        "IPV6",
+        "SRFLX"
+      ],
+      "protocol": [
+        "UDP",
+        "TCP"
+      ],
+      "port": "1..65535",
+      "priority": "1..2147483647",
+      "base_address": "valid unicast address; not unspecified, multicast, or loopback",
+      "LAN": "private IPv4 only",
+      "IPV6": "IPv6 and not link-local",
+      "SRFLX": "not private and not link-local"
+    }
+  },
+  "toolbox_baseline_publish_candidates": {
+    "commit": "a9d010fd9cdf9f7cb9c45c00afd9c2072289ab9d",
+    "source_path": "src/vnt/legacy/controller.rs",
+    "source_sha256": "1b5c7def976d526cbfeb725f6031689dcfdc1a216b350e28235a50dfffde5777",
+    "function": "publish_candidates",
+    "source_line_range": "1635-1652",
+    "baseline_behavior": {
+      "local_ipv6": "IPV6",
+      "any_local_ipv4": "LAN",
+      "reflexive_candidate": "SRFLX",
+      "protocol": "UDP"
+    },
+    "relationship_to_backend_contract": "A public IPv4 local address emitted as LAN can fail the deployed validator rule; this is a contract comparison, not proof of the specific client rejection response."
+  },
+  "candidate_role_aggregate_evidence": {
+    "path": "r13/backend/candidate-role-aggregate.json",
+    "sha256": "584588967e76cbfcaefdf32a4136dd6f6164ff8f0bdca669ce3c5546692640f2",
+    "role_type_counts": [
+      {
+        "role": "HOST",
+        "candidate_type": "LAN",
+        "count": 2
+      },
+      {
+        "role": "HOST",
+        "candidate_type": "SRFLX",
+        "count": 2
+      },
+      {
+        "role": "MEMBER",
+        "candidate_type": "SRFLX",
+        "count": 2
+      }
+    ],
+    "interpretation_limit": "Stored role/type counts only; no addresses or identities and no captured refusal fields or original response text."
+  },
+  "toolbox_current_fix": {
+    "status": "WORKTREE_EDIT_IN_PROGRESS_NOT_BOUND_TO_COMMIT",
+    "head_commit": "a9d010fd9cdf9f7cb9c45c00afd9c2072289ab9d",
+    "observed_worktree_state": "modified; no stable fix commit available at receipt time",
+    "expected_contract_alignment": "Classify normalized addresses under the deployed rules: private IPv4 LAN, public IPv4 SRFLX, routable IPv6 IPV6; reject unusable or zero-port candidates before publish.",
+    "source_hash": "NOT_BOUND_UNTIL_STABLE_COMMIT",
+    "tests": "NOT_RUN_BY_THIS_RECEIPT",
+    "native_acceptance": "NOT_RUN",
+    "release_ready": false
+  },
+  "privacy": {
+    "raw_source_lines_saved": false,
+    "raw_addresses_saved": false,
+    "player_or_steam_ids_saved": false,
+    "tokens_nonces_credentials_saved": false,
+    "specific_refusal_field_captured": false
+  }
+}

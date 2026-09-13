@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "hash_mode": "raw file bytes",
+  "source_commits": {
+    "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+    "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+    "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+    "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+  },
+  "files": [
+    {
+      "path": "evidence/backend/candidate-role-aggregate.json",
+      "bytes": 1151,
+      "sha256": "584588967e76cbfcaefdf32a4136dd6f6164ff8f0bdca669ce3c5546692640f2"
+    },
+    {
+      "path": "evidence/backend/r13-attempt-evidence.json",
+      "bytes": 13696,
+      "sha256": "144230292baf87a8685bc713d3eea017b9fc33d3977f33857d79ceb7950b7a02"
+    },
+    {
+      "path": "evidence/carrier/final-diff-review.json",
+      "bytes": 1299,
+      "sha256": "0aa4c82350b7350d432667624059d3784475c7a781038d918bd28d1c8e6afea0"
+    },
+    {
+      "path": "evidence/carrier/source-contract-receipt.json",
+      "bytes": 3631,
+      "sha256": "c9fe916ac466aca40ec85869edf01bc0525ee47a8e08a5f37dd01c44eaf5bf8b"
+    },
+    {
+      "path": "evidence/ci-toolbox.json",
+      "bytes": 1117,
+      "sha256": "c7c148199c0b000b1cacadc979dce9af4e1897db91aef4df002b66d56e96b345"
+    },
+    {
+      "path": "evidence/committed-source-binding.json",
+      "bytes": 25336,
+      "sha256": "0ab2a381f929c4173bd505fc3446795ab63c93ad946d72f730cf94cc3f878c89"
+    },
+    {
+      "path": "evidence/desktop/startup.jpg",
+      "bytes": 65067,
+      "sha256": "2e72c5b8792cfae7dc2dd150ae7889554b2688dec6c93dc5c669a721279401c4"
+    },
+    {
+      "path": "evidence/desktop/ui-observation.json",
+      "bytes": 1152,
+      "sha256": "b034ccc1a5ab9951735fa73679db7852ee58faf9256515ab4021383937824957"
+    },
+    {
+      "path": "evidence/distribution/assemble-r13-execution.json",
+      "bytes": 678,
+      "sha256": "758e0590eb7a1ee15f8b56cafd62fdabfe33ea1c78370b12c7a8ef0c635ff6ed"
+    },
+    {
+      "path": "evidence/distribution/assemble-r13-retry1-execution.json",
+      "bytes": 683,
+      "sha256": "b91e73c42032304c374024be5ec38ddc9efdd53d155f88d1ab5a1953a0357695"
+    },
+    {
+      "path": "evidence/distribution/assemble-r13-retry1.log",
+      "bytes": 511,
+      "sha256": "1261d68eb4d42d9d989f12242922f2f8b3c6cfb111a01b8dbd1394b9ca18692e"
+    },
+    {
+      "path": "evidence/distribution/assemble-r13.log",
+      "bytes": 319,
+      "sha256": "1a19cc1bfd5e1088460e7391e31b49d9124ff41a01f3080f3ce2763b1352a82e"
+    },
+    {
+      "path": "evidence/distribution/build-execution-receipt.json",
+      "bytes": 2279,
+      "sha256": "d814038f3ec22d1a6b97e44175f56e7e68cf468ea913c6b426a0f36c8553d7bb"
+    },
+    {
+      "path": "evidence/distribution/package-build-receipt.json",
+      "bytes": 1004,
+      "sha256": "b09ca2e6fceae2167620910519b5346e063131e187b12e8dd649caf3dbf472a5"
+    },
+    {
+      "path": "evidence/distribution/package-r13-execution.json",
+      "bytes": 990,
+      "sha256": "cb8b31901156403df28775f15350658605857f74357e44bea6d267043743fb93"
+    },
+    {
+      "path": "evidence/distribution/package-r13.log",
+      "bytes": 914,
+      "sha256": "b5f0e9806d08d3569f3dc132bae350770d708f35a6c2c9777f91505cab983162"
+    },
+    {
+      "path": "evidence/distribution/payload-input-prep-r13.json",
+      "bytes": 1305,
+      "sha256": "783fb4b0075a1783001a53f832855fad8b9187cabe63aa74e433c2ab139a19ee"
+    },
+    {
+      "path": "evidence/distribution/payload-signature-receipt.json",
+      "bytes": 1314,
+      "sha256": "fc8e2763d9dcbc602c485c049bc21573935b28406312b5976e905150ffd72e38"
+    },
+    {
+      "path": "evidence/distribution/preflight-r13-execution.json",
+      "bytes": 1059,
+      "sha256": "9e97fa9214b542142dad0f512c13440491e1da8b8af623c7ead79725a4955cf1"
+    },
+    {
+      "path": "evidence/distribution/preflight-r13.log",
+      "bytes": 39457,
+      "sha256": "458dc4b14d4e629eb02d6ff21e5affebc1b87ccc67aeb8784597d7075f570687"
+    },
+    {
+      "path": "evidence/distribution/preflight.json",
+      "bytes": 39262,
+      "sha256": "d83a9bc52a21b34e2b009dd4ddbee62664ea263d65887c886c3b2b9cfbac20a1"
+    },
+    {
+      "path": "evidence/distribution/public-metadata.json",
+      "bytes": 8788,
+      "sha256": "eb77c033f9655a3fec9fa30d0082eda5554369916f6996786261f6e22d5e66c0"
+    },
+    {
+      "path": "evidence/distribution/sign-toolbox-r13-execution.json",
+      "bytes": 1381,
+      "sha256": "76a29c2c5cf2e30bab58a299f010169bbf3651c3e63916a08cdc18a2e8c23850"
+    },
+    {
+      "path": "evidence/distribution/sign-toolbox-r13.log",
+      "bytes": 1318,
+      "sha256": "2e2bf7cc895fe349476f1c8b1ca319f184bd0cba7e162813fa89c91fdbab4b85"
+    },
+    {
+      "path": "evidence/distribution/strict-candidate.json",
+      "bytes": 1550,
+      "sha256": "38652fffd09b434720df5f37bd6377c36172129cffd2fa96b8302f6bb6163c84"
+    },
+    {
+      "path": "evidence/distribution/tauri-build-r13.log",
+      "bytes": 1937,
+      "sha256": "c199d312d46de245c1d366f7ab06b40b74717860a8902d3638ed0453444a6c9f"
+    },
+    {
+      "path": "evidence/distribution/toolbox-signature-receipt.json",
+      "bytes": 1318,
+      "sha256": "2e2bf7cc895fe349476f1c8b1ca319f184bd0cba7e162813fa89c91fdbab4b85"
+    },
+    {
+      "path": "evidence/native/source-contract-receipt.json",
+      "bytes": 10252,
+      "sha256": "97ebcfd3ea85e7c1c8fc0b52d30505739fc146bf836a047c6c81e7d3860a460d"
+    },
+    {
+      "path": "evidence/regression-before/before.log",
+      "bytes": 1042,
+      "sha256": "6fee82cc8fa9791c2d3d5bcb1323f030f8a01459c222cd8c3886da9043e9fb98"
+    },
+    {
+      "path": "evidence/regression-before/receipt.json",
+      "bytes": 663,
+      "sha256": "7c01d2d4e404ff32c6c56b09095420245a675ba3c1b2847f9d6c6c518bbc253d"
+    },
+    {
+      "path": "evidence/rust-final/execution-receipt.json",
+      "bytes": 33005,
+      "sha256": "2321ada5caac84f52a92020cde68a19f9a4a39f77e683406b05d5903744467f0"
+    },
+    {
+      "path": "evidence/rust-final/fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evidence/rust-final/rust-lib.log",
+      "bytes": 34426,
+      "sha256": "279d7845c85b0cf358fd41c6c9da342c584af0a089777251a4be58803ca19140"
+    },
+    {
+      "path": "evidence/rust-final/tauri-fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evidence/rust-final/tauri-tests.log",
+      "bytes": 2000,
+      "sha256": "1399da45a827deeaf0d9eec5edae205d746f52d253c26cf0dab19929df2910ab"
+    },
+    {
+      "path": "evidence/rust-targeted/controller-tests-receipt.json",
+      "bytes": 1265,
+      "sha256": "b2479c3a2c3a777d98897a878fbd84733cb8f00ced040e0eda9e96f26b8b6f9a"
+    }
+  ],
+  "release_ready": false,
+  "native_acceptance": "NOT_RUN"
+}

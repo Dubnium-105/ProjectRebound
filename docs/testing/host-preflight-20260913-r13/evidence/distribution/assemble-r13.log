@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "C:\wksp\ProjectRebound\.tmp\ready-multiplayer-20260913\root\assemble_final_package_r13.py", line 207, in <module>
+    assert "empty object" in normalization and "None" in normalization
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

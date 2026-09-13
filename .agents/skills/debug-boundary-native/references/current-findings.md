@@ -661,3 +661,10 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - Payload source `98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d` 的 `ClientLogic.cpp::ConnectStageName` 会产生 `local_pawn_ready`、`waiting_backend_confirmation`、`local_authority_pending`，r11 Toolbox 白名单漏了这三个值。r12 仅补齐这三个合法诊断状态；未知值继续拒绝，严格 Playable 仍要求精确 `playable`、完整作用域、operation、原生 Pawn/Net、后端确认 nonce 和本地 world 证据。
 - 固定构建 `Hooks.cpp::TickServer` 在 `RoundState` 包含 `InvalidState` 时等待人数并启动首次开局倒计时，因此该值是开局前空闲语义。现有 server-status parser 已保留该观测，不应将它改写为成功状态或混入 `match.state`。
 - r12 的旧解析器回归已实际重现 `local_pawn_ready` 被拒绝；合成管道帧/源码对照只证明状态契约修复，三台真实 Steam 机器的原生准入、出生操作与清理复用需独立验收。证据归档于 `docs/testing/host-preflight-20260913-r12/`；`native_authority_admission_verified` 保持 false。
+
+## 35. 空诊断 scope 与候选地址分类契约（2026-09-13）
+
+- r12 房主已完成监听并持续等待本地 Pawn，随后 Toolbox 报 `missing field attempt_id`；成员两次在启动 Boundary 前的承载协商报 `Invalid connection candidate`。用户确认成员窗口停在主菜单，不能把窗口出现当成已进入战局。原始拒绝帧未采集，不能确定是 scope 还是 playable_scope，也不能确定候选的具体拒绝字段。
+- 固定 Payload `GetClientMatchStatus` 在未建立或已清除作用域时输出 `scope={}`、`playable_scope={}`。Toolbox 原 `Option<MatchJoinScope>` 会把 `{}` 当完整对象解码并报缺字段。r13 仅对这两个诊断字段把空对象、null、缺失规范化为 None；非空残缺对象仍严格拒绝，不能产生 Playable 或后端确认。原生约 90 秒的本地 authority 等待超时会清空作用域，诊断应保留真实 last_error，不能改成成功。
+- 原候选发布把所有本机 IPv4 标为 LAN，但 Backend 8069 的 LAN 只接受私网 IPv4。r13 按同一规则分类，拒绝无效和链路本地地址，正确处理 IPv4-mapped IPv6；有效 STUN SRFLX 优先，同一连接每类仅发布一个候选。不要把两种不同 SRFLX 端点用同一 foundation 连续发布，否则会破坏稳定重放。
+- r13 旧解析器回归实际重现缺 attempt_id；修复后 Rust 372 项与 Tauri 9 项、包括真实 Windows 命名管道组件回归通过，失败和忽略均为 0。此结果只证明组件契约，不能替代三机原生准入、出生操作、清理和第二局验收；证据归档于 `docs/testing/host-preflight-20260913-r13/`，`native_authority_admission_verified` 保持 false。

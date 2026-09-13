@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "review_type": "read_only_final_diff_review",
+  "observed_at_utc": "2026-09-13T14:28:00.7327841Z",
+  "source_commit": "a9d010fd9cdf9f7cb9c45c00afd9c2072289ab9d",
+  "source_clean": false,
+  "reviewed_files": {
+    "src/server/pipe.rs": {
+      "sha256": "d13baa06b8f3c2d293e091c3ed929060afa2ba657fa18a1549079d9aff1010bb",
+      "bytes": 117891
+    },
+    "src/server/pipe_windows_tests.rs": {
+      "sha256": "3d9cb7203bdd1b100f7afd7e39b820b291f033baf70f3b8460183f2a54f51d0b",
+      "bytes": 16713
+    },
+    "src/vnt/legacy/controller.rs": {
+      "sha256": "84d70991b45fc6119d8c97c2d875a9d30f3ae1a5ac6df560c116a785d657dabc",
+      "bytes": 103939
+    }
+  },
+  "checks": {
+    "candidate_types_one_per_foundation": "PASS_BY_INSPECTION",
+    "mapped_vs_ipv4_compatible": "PASS_BY_INSPECTION",
+    "empty_scope_never_promotes_playable": "PASS_BY_INSPECTION",
+    "malformed_nonempty_scope_rejected": "PASS_BY_INSPECTION",
+    "windows_fixture_server_pid_binding": "PASS_BY_INSPECTION",
+    "windows_fixture_short_transaction_release": "PASS_BY_INSPECTION",
+    "diff_whitespace": "PASS"
+  },
+  "findings": [],
+  "tests_run": false,
+  "note": "Root full test receipt is authoritative; this review did not rerun tests."
+}

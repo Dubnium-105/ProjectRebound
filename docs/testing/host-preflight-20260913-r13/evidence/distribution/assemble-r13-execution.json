@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "started_at_utc": "2026-09-13T14:32:01.567954+00:00",
+  "finished_at_utc": "2026-09-13T14:32:01.994624+00:00",
+  "status": "FAILED_EXECUTION",
+  "exit_code": 1,
+  "failure_type": null,
+  "command": [
+    "C:\\Python314\\python.exe",
+    "-B",
+    "-X",
+    "utf8",
+    "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\root\\assemble_final_package_r13.py"
+  ],
+  "cwd": "C:\\wksp\\ProjectRebound",
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r13\\assemble-r13.log",
+  "log_sha256": "1a19cc1bfd5e1088460e7391e31b49d9124ff41a01f3080f3ce2763b1352a82e",
+  "release_ready": false
+}

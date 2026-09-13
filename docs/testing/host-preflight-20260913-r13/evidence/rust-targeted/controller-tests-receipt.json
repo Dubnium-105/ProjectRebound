@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "observed_at_utc": "2026-09-13T14:23:30.1992717Z",
+  "scope": "vnt::legacy::controller::tests",
+  "command": "cargo test --locked --lib --features vnt vnt::legacy::controller::tests -- --nocapture",
+  "source_commit": "a9d010fd9cdf9f7cb9c45c00afd9c2072289ab9d",
+  "source_clean": false,
+  "dirty_paths": [
+    "M src/server/pipe.rs",
+    "M src/server/pipe_windows_tests.rs",
+    "M src/vnt/legacy/controller.rs"
+  ],
+  "controller_sha256": "84d70991b45fc6119d8c97c2d875a9d30f3ae1a5ac6df560c116a785d657dabc",
+  "format": {
+    "status": "PASS",
+    "command": "rustfmt --edition 2024 src/vnt/legacy/controller.rs"
+  },
+  "results": {
+    "passed": 23,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 349,
+    "elapsed_seconds": 3.02
+  },
+  "initial_attempt": {
+    "status": "FAILED",
+    "evidence": "console output only",
+    "command": "cargo test --locked --lib --features vnt candidate_ -- --nocapture",
+    "failure": "E0658: use of unstable library feature ip at controller.rs:1474 for Ipv6Addr::is_ipv4_mapped",
+    "corrected_in_source": true,
+    "not_counted_as_pass": true
+  },
+  "privacy": {
+    "credentials_emitted": false,
+    "raw_logs_saved": false
+  }
+}

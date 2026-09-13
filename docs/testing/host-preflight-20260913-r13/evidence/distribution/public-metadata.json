@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "purpose": "hardware-test-only",
+  "release_ready": false,
+  "package_id": "rebound-hardware-test-20260913-r13",
+  "supersedes_package": "rebound-hardware-test-20260913-r12",
+  "candidate_change": "r13 carries forward the reviewed strict Toolbox candidate with diagnostic empty-scope normalization: Payload match.scope and match.playable_scope JSON {} or null decode as absent, while malformed nonempty scopes remain rejected. Candidate publication remains bound to the existing Backend candidate address categories (LAN, IPV6 and SRFLX) and the configured API/CN API/Meta service origins. This parser change does not grant readiness or Playable evidence. Strict roster, credential-purpose, account-epoch, and native admission checks remain enforced. Physical native acceptance has not run.",
+  "source_commits": {
+    "ProjectRebound": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+    "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473"
+  },
+  "source_scope": "ProjectRebound identifies the unchanged Payload source; the independently deployed Backend source is recorded below. The current Main HEAD is not a deployment fact.",
+  "project_rebound_main_head_at_assembly": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+  "backend_candidate_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+  "backend_implementation_source_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+  "backend_deployment_status": "PASS_EXISTING_BACKEND_DEPLOYMENT_ONLY",
+  "backend_schema_required": 48,
+  "backend_schema_observed": 48,
+  "backend_ci_url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34247644433",
+  "backend_deployment_url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34250303094",
+  "backend_health_evidence": {
+    "path": "r13/backend/r13-attempt-evidence.json",
+    "sha256": "144230292baf87a8685bc713d3eea017b9fc33d3977f33857d79ceb7950b7a02",
+    "observed_at_utc": "2026-09-13T14:13:15Z",
+    "status": "PASS_READ_ONLY_HEALTH_EVIDENCE",
+    "deployed_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+    "runtime_roles": [
+      {
+        "role": "control_plane",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "role": "meta_server",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "role": "edge_relay",
+        "running": true,
+        "health": "no_healthcheck"
+      }
+    ],
+    "public_probe_count": 6,
+    "public_probe_http_200_count": 6,
+    "mutation": "none"
+  },
+  "service_origins": [
+    "https://api.project-rebound.space",
+    "https://cnapi.project-rebound.space",
+    "https://meta.project-rebound.space"
+  ],
+  "meta_logic_endpoint": {
+    "address": "logic.project-rebound.space:443",
+    "protocol": "TLS TCP",
+    "tls_server_name": "logic.project-rebound.space"
+  },
+  "deployment_receipt_sha256": "c5a3fb6b4a42267a5fd0b1ae46dcb20e1ab00f3ebc6e1a77afc90618218e9e0d",
+  "r12_predecessor_package": {
+    "package_id": "rebound-hardware-test-20260913-r12",
+    "zip_sha256": "7166eb6b177e84f0208b0f629d4dffb4c12fc1969ba80dfb5dd464984fd1bfed",
+    "zip_bytes": 23540813,
+    "immutable": true
+  },
+  "r13_source_contract_evidence": {
+    "path": "r13/native/source-contract-receipt.json",
+    "sha256": "97ebcfd3ea85e7c1c8fc0b52d30505739fc146bf836a047c6c81e7d3860a460d",
+    "schema_version": "r13-native-source-contract-v1",
+    "scope": {
+      "mode": "read_only_static_source_and_existing_evidence",
+      "game_started": false,
+      "tests_run_by_this_review": false,
+      "source_modified_by_this_review": false,
+      "secrets_recorded": false
+    },
+    "review_conclusions": [
+      "The concrete protocol bug is serde treating an expected diagnostic {} as Some(MatchJoinScope), producing missing field attempt_id.",
+      "For HOST local_authority_pending, playable_scope={} is source-expected before backend confirmation; after the 90-second pending deadline, ClearNativeMatchScopeLocked makes both scope fields {}. The user report does not identify which one was in the failed frame.",
+      "The parent deserializer change is correctly narrow by static inspection: empty/null diagnostic scopes become None, while malformed nonempty scopes remain errors.",
+      "No other scope-bearing command response should inherit the empty-object rule; their scopes are admission/cleanup proof and remain required.",
+      "The approximately 87-second timing is consistent with the Payload's 90-second pending timeout and post-clear status polling, but raw-frame capture is required to call that the exact causal chain.",
+      "HOST registration and role quorum remain fail-closed; waiting for Pawn is not evidence that a forced spawn or quorum bypass is correct.",
+      "InvalidState belongs to native server round_state idle semantics and must stay separate from payload match.state."
+    ],
+    "raw_payload_status_frame_captured": false,
+    "diagnostic_scope_fields": [
+      "match.scope",
+      "match.playable_scope"
+    ],
+    "diagnostic_scope_normalization": "deserialize_native_optional_scope maps missing/null/empty object to None; nonempty values still deserialize strictly as MatchJoinScope",
+    "required_protocol_gap": "Only passive PayloadMatchStatus.scope and PayloadMatchStatus.playable_scope should treat JSON {} (and null) as absent. A partial or wrong-type nonempty value must continue to fail. Do not make MatchJoinScope fields globally optional and do not apply this rule to command acknowledgements or cleanup/admission receipts.",
+    "strict_scope_consumer_count": 4
+  },
+  "ipc_protocol": "strict-roster-v2",
+  "feature_mode": "Tauri custom-protocol, embedded assets, product features, no lab-testing",
+  "pinned_game": {
+    "filename": "ProjectBoundarySteam-Win64-Shipping.exe",
+    "sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "bytes": 102362112
+  },
+  "msvc_minimum_version": "14.50.35717",
+  "strict_payload_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+  "required_artifacts": {
+    "windows-x64": [
+      {
+        "path": "Payload.dll",
+        "bytes": 2098488,
+        "sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183"
+      },
+      {
+        "path": "rebound_toolbox_tauri.exe",
+        "bytes": 49494840,
+        "sha256": "d1cc82942c702fe1152f19296218749ac15427530756b18b749ed896b21a8ebb"
+      }
+    ]
+  },
+  "signatures": {
+    "payload": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "9897aaa4b58286c308b07fa05f52c9125000144cce14de247467cf1d7b3509e4",
+      "output_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+      "output_bytes": 2098488,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    },
+    "toolbox": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "6c14a67c8818faf7e41250d64da3a218e563d0ee3bf6c609d09760c30b02d6b2",
+      "output_sha256": "d1cc82942c702fe1152f19296218749ac15427530756b18b749ed896b21a8ebb",
+      "output_bytes": 49494840,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    }
+  },
+  "native_connection_collection": {
+    "status": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES",
+    "entry_point": "Owner: Collect native proof; all three frozen seats must be real Steam sessions"
+  },
+  "native_online_acceptance": {
+    "status": "BLOCKED",
+    "reason": "r13 has no independent three-machine native proof yet. The source contract records the pipe legal-start evidence gap and cannot promote this package to playable."
+  },
+  "permitted_test_scope": [
+    "reversible installation",
+    "package and dependency checks",
+    "Toolbox and native login",
+    "three-machine managed native admission collection",
+    "managed cleanup and second cold-start collection"
+  ],
+  "distribution_kind": "portable test delta over a complete existing Rebound runtime",
+  "publication": {
+    "updater_published": false,
+    "externally_uploaded": false
+  }
+}

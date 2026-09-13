@@ -1,0 +1,1257 @@
+{
+  "schema_version": 1,
+  "kind": "diagnostic-scope-and-candidate-address-r13-append-delta",
+  "recorded_at_utc": "2026-09-13T14:41:05.561584+00:00",
+  "release_ready": false,
+  "native_authority_admission_verified": false,
+  "baseline": {
+    "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+    "sha256": "5c5932b41d6dd1c10ede91d34dd872bf8fd6bc0095b14f66352df00222688999"
+  },
+  "source": {
+    "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+    "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+    "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+    "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+  },
+  "r13_scope": {
+    "r12_physical_result": "FAILED_USER_REPORTED",
+    "native_acceptance": "NOT_RUN",
+    "release_ready": false,
+    "diagnostic_scope_rule": "{} or null -> None only for passive Payload scope/playable_scope telemetry; malformed nonempty values remain strict",
+    "backend_candidate_address_categories": [
+      "LAN",
+      "IPV6",
+      "SRFLX"
+    ],
+    "candidate_publication_policy": "Prefer a valid STUN candidate when present; otherwise retain the valid local fallback; publish at most one candidate per backend class.",
+    "assembly_tooling": {
+      "initial_status": "FAILED_EXECUTION",
+      "retry_status": "PASS_EXECUTION",
+      "product_source_changed": false,
+      "explanation": "The helper initially read diagnostic_fields from payload_scope_contract; it was corrected to toolbox_consumer_contract before the passing retry."
+    },
+    "specific_address_or_refusal_field_captured": false,
+    "backend_attempt_state": "ABORTED",
+    "backend_cleanup_state": "CLEARED",
+    "candidate_validation_observation": "NOT_OBSERVED_IN_TARGET_SCOPED_OR_WINDOW_GENERIC_MARKERS",
+    "role_type_summary": "HOST:LAN=2, HOST:SRFLX=2, MEMBER:SRFLX=2",
+    "candidate_aggregate_interpretation_limit": "Counts identify stored candidate role/type distribution only; they do not identify request rejection cause or client response text.",
+    "candidate_diagnostic_event_count": 0
+  },
+  "items": [
+    {
+      "id": "BP-001",
+      "title": "源码基线与实测 EXE/DLL 版本未闭合",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-001"
+      },
+      "r13_append": {
+        "status": "COMPONENT_VALIDATED_NATIVE_NOT_RUN",
+        "change": "Bind the final r13 source hashes, candidate manifest and package evidence without claiming native acceptance.",
+        "modification_commit": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/native/source-contract-receipt.json",
+          "evidence/carrier/source-contract-receipt.json",
+          "evidence/carrier/final-diff-review.json",
+          "evidence/backend/r13-attempt-evidence.json",
+          "evidence/backend/candidate-role-aggregate.json",
+          "evidence/rust-final/execution-receipt.json",
+          "evidence/rust-targeted/controller-tests-receipt.json",
+          "evidence/distribution/public-metadata.json",
+          "evidence/distribution/package-build-receipt.json",
+          "evidence/desktop/ui-observation.json",
+          "evidence/ci-toolbox.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-002",
+      "title": "并发刷新、登出和旧结果回写竞争",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-002"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-003",
+      "title": "DPAPI 配置直接覆盖，缺少原子持久化",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-003"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-004",
+      "title": "fresh/logged_in 的状态保证强于实际结果",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-004"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-005",
+      "title": "WebSocket 重连使用旧 Token，缺少统一恢复过程",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-005"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-006",
+      "title": "凭据种类缺少统一机器可读生命周期清单",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-006"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-007",
+      "title": "客户端进房/建房部分成功后的补偿与恢复不全",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-007"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-008",
+      "title": "Host/Member 角色在启动分派中被丢弃",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-008"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-009",
+      "title": "VNT 裸 IP 与 Payload host:port 校验冲突",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-009"
+      },
+      "r13_append": {
+        "status": "COMPONENT_VALIDATED_NATIVE_NOT_RUN",
+        "change": "Record Backend LAN/IPV6/SRFLX validation and Toolbox candidate classification parity; no exact refusal field was captured.",
+        "modification_commit": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/native/source-contract-receipt.json",
+          "evidence/carrier/source-contract-receipt.json",
+          "evidence/carrier/final-diff-review.json",
+          "evidence/backend/r13-attempt-evidence.json",
+          "evidence/backend/candidate-role-aggregate.json",
+          "evidence/rust-final/execution-receipt.json",
+          "evidence/rust-targeted/controller-tests-receipt.json",
+          "evidence/distribution/public-metadata.json",
+          "evidence/distribution/package-build-receipt.json",
+          "evidence/desktop/ui-observation.json",
+          "evidence/ci-toolbox.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-010",
+      "title": "VNT host_ready/探测通与原生游戏监听就绪混用",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-010"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-011",
+      "title": "新建回退、开局前 rebind 与运行中迁移边界必须固定",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-011"
+      },
+      "r13_append": {
+        "status": "COMPONENT_VALIDATED_NATIVE_NOT_RUN",
+        "change": "Keep candidate publication and rebind boundaries tied to the managed backend contract; native route acceptance remains unrun.",
+        "modification_commit": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/native/source-contract-receipt.json",
+          "evidence/carrier/source-contract-receipt.json",
+          "evidence/carrier/final-diff-review.json",
+          "evidence/backend/r13-attempt-evidence.json",
+          "evidence/backend/candidate-role-aggregate.json",
+          "evidence/rust-final/execution-receipt.json",
+          "evidence/rust-targeted/controller-tests-receipt.json",
+          "evidence/distribution/public-metadata.json",
+          "evidence/distribution/package-build-receipt.json",
+          "evidence/desktop/ui-observation.json",
+          "evidence/ci-toolbox.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-012",
+      "title": "Legacy 单 game_peer 和全 peers 广播可能合并多人身份",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-012"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-013",
+      "title": "Relay 16 字节截断 HMAC 用了完整长度验证接口",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-013"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-014",
+      "title": "Relay 数据面错误被吞，重排/MTU/重放缺少可观测验收",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-014"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-015",
+      "title": "Relay 迁移缺少显式切换状态、代次与收尾",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-015"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-016",
+      "title": "launch_join 返回空 PID，与前端完成结果契约冲突",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-016"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-017",
+      "title": "launch_room 在最终提交前发布成功且失败清理不一致",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-017"
+      },
+      "r13_append": {
+        "status": "COMPONENT_VALIDATED_NATIVE_NOT_RUN",
+        "change": "Normalize passive empty native scope diagnostics after startup/cleanup without treating them as launch success.",
+        "modification_commit": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/native/source-contract-receipt.json",
+          "evidence/carrier/source-contract-receipt.json",
+          "evidence/carrier/final-diff-review.json",
+          "evidence/backend/r13-attempt-evidence.json",
+          "evidence/backend/candidate-role-aggregate.json",
+          "evidence/rust-final/execution-receipt.json",
+          "evidence/rust-targeted/controller-tests-receipt.json",
+          "evidence/distribution/public-metadata.json",
+          "evidence/distribution/package-build-receipt.json",
+          "evidence/desktop/ui-observation.json",
+          "evidence/ci-toolbox.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-018",
+      "title": "PID/窗口稳定被当成远程入场完成",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-018"
+      },
+      "r13_append": {
+        "status": "COMPONENT_VALIDATED_NATIVE_NOT_RUN",
+        "change": "Keep malformed nonempty scopes strict and require complete promoted scope evidence for Playable.",
+        "modification_commit": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/native/source-contract-receipt.json",
+          "evidence/carrier/source-contract-receipt.json",
+          "evidence/carrier/final-diff-review.json",
+          "evidence/backend/r13-attempt-evidence.json",
+          "evidence/backend/candidate-role-aggregate.json",
+          "evidence/rust-final/execution-receipt.json",
+          "evidence/rust-targeted/controller-tests-receipt.json",
+          "evidence/distribution/public-metadata.json",
+          "evidence/distribution/package-build-receipt.json",
+          "evidence/desktop/ui-observation.json",
+          "evidence/ci-toolbox.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-019",
+      "title": "房间/远程 Join 缺少统一 PayloadReady 握手与诊断通道",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-019"
+      },
+      "r13_append": {
+        "status": "COMPONENT_VALIDATED_NATIVE_NOT_RUN",
+        "change": "Decode Payload scope and playable_scope {} or null as absent while retaining strict admission proof checks.",
+        "modification_commit": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/native/source-contract-receipt.json",
+          "evidence/carrier/source-contract-receipt.json",
+          "evidence/carrier/final-diff-review.json",
+          "evidence/backend/r13-attempt-evidence.json",
+          "evidence/backend/candidate-role-aggregate.json",
+          "evidence/rust-final/execution-receipt.json",
+          "evidence/rust-targeted/controller-tests-receipt.json",
+          "evidence/distribution/public-metadata.json",
+          "evidence/distribution/package-build-receipt.json",
+          "evidence/desktop/ui-observation.json",
+          "evidence/ci-toolbox.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-020",
+      "title": "Toolbox 登录与游戏登录/游戏线程泵送没有闭环",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-020"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-021",
+      "title": "发出 open 后即清空队列，缺少 Travel 成败闭环",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-021"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-022",
+      "title": "join_ack.status accepted/ok 不兼容",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-022"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-023",
+      "title": "IPC 文档/七命令、分帧、取消和结构化错误未统一",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-023"
+      },
+      "r13_append": {
+        "status": "COMPONENT_VALIDATED_NATIVE_NOT_RUN",
+        "change": "Preserve structured IPC errors and stale/request validation; the diagnostic normalization is limited to status telemetry.",
+        "modification_commit": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/native/source-contract-receipt.json",
+          "evidence/carrier/source-contract-receipt.json",
+          "evidence/carrier/final-diff-review.json",
+          "evidence/backend/r13-attempt-evidence.json",
+          "evidence/backend/candidate-role-aggregate.json",
+          "evidence/rust-final/execution-receipt.json",
+          "evidence/rust-targeted/controller-tests-receipt.json",
+          "evidence/distribution/public-metadata.json",
+          "evidence/distribution/package-build-receipt.json",
+          "evidence/desktop/ui-observation.json",
+          "evidence/ci-toolbox.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-024",
+      "title": "游戏 lifecycle 与服务注册 state 枚举未完整适配",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-024"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-025",
+      "title": "错误、trace 与前端房间状态同步不完整",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-025"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-026",
+      "title": "有序资源关闭未覆盖常驻worker与阻塞IO",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-026"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-027",
+      "title": "世界切换后角色、配装、控制器、HUD与多局流程未验收",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-027"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-028",
+      "title": "本地 Node Meta 与远程 Go MetaTunnel 是不同模式",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-028"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-029",
+      "title": "MetaTunnel 动态端口、Token更新和EOF/父进程退出未接成工作流",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-029"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-030",
+      "title": "Toolbox 未接通权威大厅/Attempt 完整控制器",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-030"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-031",
+      "title": "角色、hosting/transport与各类ID/generation不能压成一个字段",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-031"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-032",
+      "title": "退役旧在线房间API与任意地址Join，保留托管隔离",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-032"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-033",
+      "title": "旧连通回调提前推进托管p2p_room为RUNNING",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-033"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-034",
+      "title": "BattleLog Presence等投影入口仍能独立推进托管状态",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-034"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-035",
+      "title": "大厅—传输—对局投影的跨事务补偿与崩溃恢复需补证据",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-035"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-036",
+      "title": "多种Presence/Heartbeat租约与启动/Grant时限尚未统一编排",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-036"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-037",
+      "title": "后端开局人数规则与游戏角色确认门禁未形成同一政策",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-037"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-038",
+      "title": "客户端携带Join Grant的原生NMT_Login路径尚未实现",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-038"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-039",
+      "title": "权威PreLogin、真实身份、队伍/席位执行与回执未闭环",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-039"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-040",
+      "title": "P2P房主StartAuthority传空平台身份且缺原生启动证明",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-040"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-041",
+      "title": "同route的allocation刷新未应用新席位generation",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-041"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-042",
+      "title": "Join Grant重复申请/撤销/消费与本地准入缺少一致事务",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-042"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-043",
+      "title": "权威恢复缺少route/seat刷新与同世界连续性证明",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-043"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-044",
+      "title": "旧快照/旧Attempt/旧断线回执污染新会话的边界需全链验证",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-044"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-045",
+      "title": "Dedicated严格调度没有充分筛选准入能力",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-045"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-046",
+      "title": "专服心跳active_match未被Toolbox消费并驱动准入",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-046"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-047",
+      "title": "数据库结束/释放早于Payload清理与游戏资源确认",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-047"
+      },
+      "r13_append": {
+        "status": "EVIDENCE_ONLY_NATIVE_NOT_RUN",
+        "change": "Evidence only: record backend lifecycle and candidate aggregates; no cleanup implementation change is claimed.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/backend/r13-attempt-evidence.json",
+          "evidence/backend/candidate-role-aggregate.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-048",
+      "title": "strict开关关闭启动会批量终止共享数据库严格对局",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-048"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-049",
+      "title": "配套schema升级、单版本部署与身份隔离门禁",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-049"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-050",
+      "title": "发布/更新/运行时安全门禁需跟兼容矩阵一起保持",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-050"
+      },
+      "r13_append": {
+        "status": "COMPONENT_VALIDATED_NATIVE_NOT_RUN",
+        "change": "Bind the test package, signatures, desktop observation, distribution receipts and CI query dynamically.",
+        "modification_commit": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/native/source-contract-receipt.json",
+          "evidence/carrier/source-contract-receipt.json",
+          "evidence/carrier/final-diff-review.json",
+          "evidence/backend/r13-attempt-evidence.json",
+          "evidence/backend/candidate-role-aggregate.json",
+          "evidence/rust-final/execution-receipt.json",
+          "evidence/rust-targeted/controller-tests-receipt.json",
+          "evidence/distribution/public-metadata.json",
+          "evidence/distribution/package-build-receipt.json",
+          "evidence/desktop/ui-observation.json",
+          "evidence/ci-toolbox.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-051",
+      "title": "现有单库/模拟/可视化检查不能证明端到端已通过",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-051"
+      },
+      "r13_append": {
+        "status": "COMPONENT_VALIDATED_NATIVE_NOT_RUN",
+        "change": "Separate component checks and package observations from the still-unrun native multiplayer acceptance.",
+        "modification_commit": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [
+          "evidence/committed-source-binding.json",
+          "evidence/native/source-contract-receipt.json",
+          "evidence/carrier/source-contract-receipt.json",
+          "evidence/carrier/final-diff-review.json",
+          "evidence/backend/r13-attempt-evidence.json",
+          "evidence/backend/candidate-role-aggregate.json",
+          "evidence/rust-final/execution-receipt.json",
+          "evidence/rust-targeted/controller-tests-receipt.json",
+          "evidence/distribution/public-metadata.json",
+          "evidence/distribution/package-build-receipt.json",
+          "evidence/desktop/ui-observation.json",
+          "evidence/ci-toolbox.json"
+        ],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    },
+    {
+      "id": "BP-052",
+      "title": "Backend/matchserver二进制来源与消费链待审计",
+      "prior_record": {
+        "path": "../host-preflight-20260913-r12/52-item-r12-append-delta.json",
+        "id": "BP-052"
+      },
+      "r13_append": {
+        "status": "NOT_REEVALUATED_R13",
+        "change": "No new implementation or acceptance claim; retain the r12 baseline record.",
+        "modification_commit": null,
+        "source_commits": {
+          "Main": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+          "Toolbox": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+          "Backend": "8069d5e1126b8a585610b232e721aee45c57ee88",
+          "Payload": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d"
+        },
+        "evidence_refs": [],
+        "physical_native_acceptance": "NOT_RUN_FOR_R13"
+      }
+    }
+  ]
+}

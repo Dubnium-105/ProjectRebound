@@ -1,0 +1,444 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-09-13T14:13:15Z",
+  "scope": {
+    "lobby": "lby_<redacted>",
+    "attempt": "mat_<redacted>",
+    "window_utc": {
+      "since": "2026-09-13T14:00:00Z",
+      "until": "2026-09-13T14:05:00Z"
+    },
+    "client_window_hkt": {
+      "since": "2026-09-13T22:00:00+08:00",
+      "until": "2026-09-13T22:05:00+08:00"
+    },
+    "target_request": "not supplied in user report"
+  },
+  "collection": {
+    "method": "authorized SSH to existing deployment; docker logs/inspect, public HTTPS GET, and fixed aggregate-only Postgres SELECT projections",
+    "mutation": "none",
+    "raw_logs_saved": false,
+    "raw_database_rows_read": false,
+    "credentials_tokens_grants_nonces_saved": false,
+    "per_line_log_events_saved": false,
+    "request_ids_emitted": false
+  },
+  "source_identity": {
+    "deployed_backend_expected_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+    "runtime_container_oci_revisions": [
+      {
+        "role": "control_plane",
+        "available": true,
+        "running": true,
+        "health": "healthy",
+        "oci_revision": "8069d5e1126b8a585610b232e721aee45c57ee88"
+      },
+      {
+        "role": "meta_server",
+        "available": true,
+        "running": true,
+        "health": "healthy",
+        "oci_revision": "8069d5e1126b8a585610b232e721aee45c57ee88"
+      },
+      {
+        "role": "edge_relay",
+        "available": true,
+        "running": true,
+        "health": "no_healthcheck",
+        "oci_revision": "8069d5e1126b8a585610b232e721aee45c57ee88"
+      }
+    ]
+  },
+  "logs": [
+    {
+      "role": "control_plane",
+      "docker_logs_exit_code": 0,
+      "window_utc": {
+        "since": "2026-09-13T14:00:00Z",
+        "until": "2026-09-13T14:05:00Z"
+      },
+      "line_count": 558,
+      "raw_bytes": 130070,
+      "raw_sha256": "677f0e98d73ec0ddf09a9cb09a838baace10a8f167fc74bed220a35d55dfa92d",
+      "matching_line_count": 149,
+      "http_status_counts": {
+        "200": 149
+      },
+      "raw_log_persisted": false,
+      "credentials_ids_tokens_nonces_emitted": false,
+      "per_line_events_saved": false,
+      "target_events_retained_as": "key_event_timeline_only"
+    },
+    {
+      "role": "meta_server",
+      "docker_logs_exit_code": 0,
+      "window_utc": {
+        "since": "2026-09-13T14:00:00Z",
+        "until": "2026-09-13T14:05:00Z"
+      },
+      "line_count": 169,
+      "raw_bytes": 37101,
+      "raw_sha256": "054c9975347ac17f1c5dbac10562208b3f83ddb925ba0bac9d4ab0bb401b700b",
+      "matching_line_count": 0,
+      "http_status_counts": {},
+      "raw_log_persisted": false,
+      "credentials_ids_tokens_nonces_emitted": false,
+      "per_line_events_saved": false,
+      "target_events_retained_as": "key_event_timeline_only"
+    },
+    {
+      "role": "edge_relay",
+      "docker_logs_exit_code": 0,
+      "window_utc": {
+        "since": "2026-09-13T14:00:00Z",
+        "until": "2026-09-13T14:05:00Z"
+      },
+      "line_count": 0,
+      "raw_bytes": 0,
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matching_line_count": 0,
+      "http_status_counts": {},
+      "raw_log_persisted": false,
+      "credentials_ids_tokens_nonces_emitted": false,
+      "per_line_events_saved": false,
+      "target_events_retained_as": "key_event_timeline_only"
+    }
+  ],
+  "target_scoped_request_timeline": [
+    {
+      "operation": "host_allocation",
+      "first_observed": "2026-09-13T14:02:10.731366068Z",
+      "request_count": 1,
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "operation": "host_complete",
+      "first_observed": "2026-09-13T14:04:27.187129253Z",
+      "request_count": 1,
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "operation": "host_heartbeat",
+      "first_observed": "2026-09-13T14:02:13.054706717Z",
+      "request_count": 18,
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "operation": "host_native_cleared",
+      "first_observed": "2026-09-13T14:04:36.939345391Z",
+      "request_count": 1,
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "operation": "host_payload_installed",
+      "first_observed": "2026-09-13T14:02:57.228090357Z",
+      "request_count": 1,
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "operation": "host_ready",
+      "first_observed": "2026-09-13T14:02:58.748507218Z",
+      "request_count": 1,
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "operation": "lobby_presence",
+      "first_observed": "2026-09-13T14:01:03.849013216Z",
+      "request_count": 35,
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "operation": "lobby_snapshot",
+      "first_observed": "2026-09-13T14:01:06.317277363Z",
+      "request_count": 39,
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "operation": "lobby_start",
+      "first_observed": "2026-09-13T14:02:05.148923665Z",
+      "request_count": 1,
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "operation": "member_connection",
+      "first_observed": "2026-09-13T14:03:00.69980025Z",
+      "request_count": 1,
+      "http_statuses": [
+        200
+      ]
+    },
+    {
+      "operation": "transport_projection",
+      "first_observed": "2026-09-13T14:02:13.707686747Z",
+      "request_count": 3,
+      "http_statuses": [
+        200
+      ]
+    }
+  ],
+  "candidate_validation_aggregate": {
+    "diagnostic_event_count": 0,
+    "target_scoped_diagnostic_event_count": 0,
+    "generic_window_diagnostic_event_count": 0,
+    "marker_counts": {},
+    "error_code_counts": {},
+    "first_observed_by_marker": {},
+    "timeline": [],
+    "database_candidate_summary": {
+      "status": "READ",
+      "candidate_count": "6",
+      "lan_count": "2",
+      "ipv6_count": "0",
+      "srflx_count": "4",
+      "udp_count": "6",
+      "tcp_count": "0",
+      "candidate_types": "LAN,SRFLX"
+    },
+    "database_connection_error_summary": {
+      "status": "READ",
+      "connection_count": "2",
+      "failure_reason_present_count": "2",
+      "candidate_related_failure_count": "0",
+      "attempt_related_failure_count": "0",
+      "failure_reason_categories": "other"
+    },
+    "raw_error_text_saved": false
+  },
+  "database_aggregate": {
+    "method": "read-only SELECT aggregates through existing Postgres container",
+    "attempt": {
+      "status": "READ",
+      "row_count": "1",
+      "state": "ABORTED",
+      "cleanup_state": "CLEARED",
+      "endpoint_host_present": "t",
+      "endpoint_port_present": "t",
+      "payload_installed": "t",
+      "authority_last_seen": "t",
+      "cleanup_requested": "t",
+      "native_cleared": "t",
+      "cleanup_lease_present": "f",
+      "cleanup_error_present": "f",
+      "failure_code": "P2P_AUTHORITY_LAUNCH_FAILED",
+      "created_at": "2026-09-13T14:02:05.114Z",
+      "updated_at": "2026-09-13T14:04:36.930Z",
+      "completed_at": "2026-09-13T14:04:27.177Z"
+    },
+    "roster": {
+      "status": "READ",
+      "roster_count": "2",
+      "host_seat_count": "1",
+      "member_seat_count": "1",
+      "connection_states": "CONNECTED,RESERVED",
+      "connected_count": "1",
+      "live_nonce_present_count": "1",
+      "disconnected_at_present_count": "0"
+    },
+    "admission_grants": {
+      "status": "READ",
+      "grant_count": "0",
+      "consumed_count": "0",
+      "revoked_count": "0"
+    },
+    "lobby_and_transport": {
+      "status": "READ",
+      "lobby_state": "ABORTED",
+      "lobby_current_attempt_bound": "t",
+      "transport_state": "CLOSED",
+      "transport_player_count": "2",
+      "connection_count": "2",
+      "connection_states": "CLOSED"
+    },
+    "candidate_summary": {
+      "status": "READ",
+      "candidate_count": "6",
+      "lan_count": "2",
+      "ipv6_count": "0",
+      "srflx_count": "4",
+      "udp_count": "6",
+      "tcp_count": "0",
+      "candidate_types": "LAN,SRFLX"
+    },
+    "connection_error_summary": {
+      "status": "READ",
+      "connection_count": "2",
+      "failure_reason_present_count": "2",
+      "candidate_related_failure_count": "0",
+      "attempt_related_failure_count": "0",
+      "failure_reason_categories": "other"
+    },
+    "raw_rows_emitted": false,
+    "credential_or_nonce_values_emitted": false
+  },
+  "public_http_probes": [
+    {
+      "host": "api.project-rebound.space",
+      "path": "/health/live",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "host": "api.project-rebound.space",
+      "path": "/health/ready",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "host": "api.project-rebound.space",
+      "path": "/v1/client/config",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "host": "cnapi.project-rebound.space",
+      "path": "/health/ready",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "host": "meta.project-rebound.space",
+      "path": "/health/live",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "host": "meta.project-rebound.space",
+      "path": "/health/ready",
+      "http_status": 200,
+      "error_type": null
+    }
+  ],
+  "assessment": {
+    "host_ready_to_abort": "HOST_READY_HTTP_200_AT_2026-09-13T14:02:58.748507218Z -> HOST_COMPLETE_HTTP_200_AT_2026-09-13T14:04:27.187129253Z; FINAL_DB_STATE_ABORTED_FAILURE_CODE_OBSERVED",
+    "host_ready_to_complete_elapsed_seconds": 88.439,
+    "candidate_validation": "NOT_OBSERVED_IN_TARGET_SCOPED_OR_WINDOW_GENERIC_MARKERS",
+    "candidate_validation_error_distribution": {},
+    "candidate_validation_timeline_count": 0,
+    "candidate_types": {
+      "status": "READ",
+      "candidate_count": "6",
+      "lan_count": "2",
+      "ipv6_count": "0",
+      "srflx_count": "4",
+      "udp_count": "6",
+      "tcp_count": "0",
+      "candidate_types": "LAN,SRFLX"
+    },
+    "connection_failure_reason_aggregate": {
+      "status": "READ",
+      "connection_count": "2",
+      "failure_reason_present_count": "2",
+      "candidate_related_failure_count": "0",
+      "attempt_related_failure_count": "0",
+      "failure_reason_categories": "other"
+    },
+    "missing_attempt_id": "NOT_OBSERVED_IN_TARGET_SCOPED_OR_WINDOW_GENERIC_MARKERS",
+    "member_room_not_connectable": "NOT_OBSERVED_IN_TARGET_SCOPED_BACKEND_LOGS",
+    "member_409_to_closed_cascade": "NOT_ESTABLISHED_FROM_REDACTED_BACKEND_EVIDENCE",
+    "member_409_to_cleanup_elapsed_seconds": null,
+    "final_attempt": "ABORTED",
+    "final_cleanup": "CLEARED",
+    "transport": "CLOSED",
+    "cleanup_flags": {
+      "cleanup_requested": "t",
+      "native_cleared": "t",
+      "cleanup_lease_present": "f",
+      "cleanup_error_present": "f"
+    },
+    "backend_health": "8069_RUNTIME_ROLES_HEALTHY_OR_NO_HEALTHCHECK_AND_PUBLIC_PROBES_HTTP_200",
+    "native_gameplay": "NOT_RUN"
+  },
+  "user_report": {
+    "member_failure": "invalid connection candidate at two client timestamps",
+    "host_failure": "missing field attempt_id at one client timestamp",
+    "host_sequence": "client-reported host validation error; backend lifecycle is read separately",
+    "source": "user-supplied client logs; not a backend error-cause assertion"
+  },
+  "source_inference": {
+    "attempt_abort_path": "Main source semantics: a failed host completion transitions the attempt to ABORTED, requests cleanup, and closes the P2P transport projection.",
+    "member_cascade_limit": "Client-reported candidate validation errors are retained as fixed markers only; the collector does not assert their request-level cause without a backend request body.",
+    "basis": "Only phase/status/timing, field-presence and aggregate projections were retained; raw logs, request bodies and identities were not saved."
+  },
+  "target_key_event_timeline": [
+    {
+      "label": "host_ready",
+      "timestamp": "2026-09-13T14:02:58.748507218Z",
+      "scope": "target_scoped",
+      "http_statuses": [
+        200
+      ],
+      "request_operations": [
+        "host_ready"
+      ],
+      "endpoint_names": [
+        "/v1/match-attempts/mat_<redacted>/host/ready"
+      ],
+      "phases": [],
+      "codes": [],
+      "candidate_diagnostic_markers": []
+    },
+    {
+      "label": "host_complete",
+      "timestamp": "2026-09-13T14:04:27.187129253Z",
+      "scope": "target_scoped",
+      "http_statuses": [
+        200
+      ],
+      "request_operations": [
+        "host_complete"
+      ],
+      "endpoint_names": [
+        "/v1/match-attempts/mat_<redacted>/host/complete"
+      ],
+      "phases": [
+        "complete"
+      ],
+      "codes": [],
+      "candidate_diagnostic_markers": []
+    },
+    {
+      "label": "host_native_cleared",
+      "timestamp": "2026-09-13T14:04:36.939345391Z",
+      "scope": "target_scoped",
+      "http_statuses": [
+        200
+      ],
+      "request_operations": [
+        "host_native_cleared"
+      ],
+      "endpoint_names": [
+        "/v1/match-attempts/mat_<redacted>/host/native-cleared"
+      ],
+      "phases": [
+        "native_cleared"
+      ],
+      "codes": [],
+      "candidate_diagnostic_markers": []
+    }
+  ],
+  "privacy": {
+    "raw_rows_emitted": false,
+    "raw_logs_emitted": false,
+    "request_id_values_emitted": false,
+    "player_and_steam_identity_values_emitted": false,
+    "credential_token_nonce_values_emitted": false
+  }
+}

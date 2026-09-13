@@ -1,0 +1,163 @@
+{
+  "schema_version": "r13-native-source-contract-v1",
+  "generated_at_utc": "2026-09-13T14:15:05.7255567Z",
+  "scope": {
+    "mode": "read_only_static_source_and_existing_evidence",
+    "game_started": false,
+    "tests_run_by_this_review": false,
+    "source_modified_by_this_review": false,
+    "secrets_recorded": false
+  },
+  "source_revisions": {
+    "main_payload": {
+      "path": "C:/wksp/ProjectRebound",
+      "commit": "903693124f1c09d387efc58c5a9c77e7dc3c4455",
+      "payload_build_source_commit": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+      "payload_subtree_diff_to_build_source": "empty",
+      "payload_source_binding_provenance": "git diff --quiet 98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d HEAD -- Payload"
+    },
+    "toolbox_consumer": {
+      "path": "C:/wksp/ProjectReboundToolbox-clean-candidate-20260909",
+      "commit": "a9d010fd9cdf9f7cb9c45c00afd9c2072289ab9d",
+      "pipe_worktree": "modified by parent; uncommitted r13 deserializer and tests at review",
+      "pipe_rs_sha256_at_review": "D13BAA06B8F3C2D293E091C3ED929060AFA2BA657FA18A1549079D9AFF1010BB"
+    }
+  },
+  "user_report_and_limits": {
+    "reported_sequence": "HOST authority_ready, about 87 seconds later missing field attempt_id and cleanup; server reported Listening; local host state reported local_authority_pending waiting for Pawn; member carrier reported two invalidcandidate observations",
+    "raw_payload_status_frame_captured": false,
+    "exact_scope_field_in_failed_frame": "unknown: scope versus playable_scope",
+    "causal_precision": "The supplied report proves the error class and surrounding states only. It does not prove which nested field was empty or the exact response ordering."
+  },
+  "payload_scope_contract": {
+    "producer_files": [
+      {
+        "path": "Payload/ClientLogic/ClientLogic.cpp",
+        "sha256": "C05A0C0FB8CE0735FBB95A5D28BCCEB33ED4E020001AFFBB9DB8B061744EFD75",
+        "lines": "190-206, 1744-1840, 1842-1978, 2440-2482",
+        "role": "scope lifecycle, HOST staging/confirmation, diagnostic match status"
+      },
+      {
+        "path": "Payload/ClientLogic/NativeMatchScope.h",
+        "sha256": "BE497F271C1A8C64A879D51718B927FA89DAFD803D705378FB0C6ACD09CB333A",
+        "lines": "21-36, 207-260, 366-390",
+        "role": "strict scope fields, validation, JSON producer/parser"
+      },
+      {
+        "path": "Payload/dllmain.cpp",
+        "sha256": "36D94EF8175ED281431D9E2E5E25822949918CE354AA5D211F7B6863D182A25E",
+        "lines": "370-433, 2711-2717, 3193-3198",
+        "role": "BuildPayloadStatus and payload status callback"
+      },
+      {
+        "path": "Payload/Communication/CommandFramework.cpp",
+        "sha256": "1F4246B47D86B5B0F1E62219A294B2CAD03DDA678F7E7250159420BFD88F2532",
+        "lines": "1518-1534",
+        "role": "payload_status request acknowledgement wrapper"
+      }
+    ],
+    "serialization_semantics": [
+      {
+        "field": "match.scope",
+        "producer": "GetClientMatchStatus starts with JSON object {}; replaces it with stagedNativeMatchScope.ToJson() only when a staged scope exists",
+        "source": "Payload/ClientLogic/ClientLogic.cpp:2449-2455",
+        "host_pending": "StageLocalAuthorityClientScope normally makes this nonempty for HOST after successful staging"
+      },
+      {
+        "field": "match.playable_scope",
+        "producer": "GetClientMatchStatus starts with JSON object {}; replaces it with confirmedNativeMatchScope.ToJson() only after confirmation",
+        "source": "Payload/ClientLogic/ClientLogic.cpp:2456-2462",
+        "host_pending": "Expected to remain {} during local_authority_pending before backend confirmation"
+      },
+      {
+        "event": "ClearNativeMatchScopeLocked",
+        "source": "Payload/ClientLogic/ClientLogic.cpp:190-206",
+        "effect": "resets staged and confirmed scopes, then subsequent status frames serialize both diagnostic scope fields as {}"
+      },
+      {
+        "event": "BuildPayloadStatus",
+        "source": "Payload/dllmain.cpp:370-433",
+        "effect": "embeds GetClientMatchStatus on ordinary payload_status responses; a status poll can observe {} before staging or after cleanup"
+      }
+    ],
+    "late_failure_timing": {
+      "travel_timeout": "Payload/ClientLogic/ClientLogic.cpp:169, 1819-1821 sets a 90-second deadline for HOST local_authority_pending",
+      "expiry": "Payload/ClientLogic/ClientLogic.cpp:2265-2278 changes to failed, chooses playable_pawn_timeout when the world is ready (otherwise world_ready_timeout), then clears both scopes",
+      "assessment": "The reported approximately 87-second delay is temporally consistent with polling around this 90-second timeout and then attempting to decode a post-clear {} scope. This is a source-supported explanation class, not a proven reconstruction because the raw response was not captured."
+    }
+  },
+  "toolbox_consumer_contract": {
+    "diagnostic_fields": {
+      "definition": "src/server/pipe.rs:197-250",
+      "current_safe_fix_observed": "deserialize_native_optional_scope maps missing/null/empty object to None; nonempty values still deserialize strictly as MatchJoinScope",
+      "current_safe_fix_source": "src/server/pipe.rs:214-256",
+      "static_safety": "The fix is limited to PayloadMatchStatus.scope and playable_scope and cannot manufacture a strict admission result."
+    },
+    "strict_consumers_that_must_remain_strict": [
+      {
+        "path": "src/server/pipe.rs:307-390",
+        "contract": "playable_evidence requires Some(playable_scope), exact scope, exact operation, Backend nonce, scope_verified, local world, local pawn and native net"
+      },
+      {
+        "path": "src/server/pipe.rs:1437-1530",
+        "contract": "accepted client connection acknowledgement requires a nonempty validated scope matching the expected operation, role and nonce"
+      },
+      {
+        "path": "src/server/pipe.rs:1548-1674",
+        "contract": "authority-ready and preserved-host scope, when present, remain strict"
+      },
+      {
+        "path": "src/server/pipe.rs:1676-1760",
+        "contract": "allocation-clear/cleanup receipt keeps flat attempt, authority, world, roster and route fields required"
+      }
+    ],
+    "required_protocol_gap": "Only passive PayloadMatchStatus.scope and PayloadMatchStatus.playable_scope should treat JSON {} (and null) as absent. A partial or wrong-type nonempty value must continue to fail. Do not make MatchJoinScope fields globally optional and do not apply this rule to command acknowledgements or cleanup/admission receipts."
+  },
+  "host_pawn_quorum_contract": {
+    "participant_admission": {
+      "source": "Payload/Hooks/Hooks.cpp:1684-1775, 1778-1893",
+      "finding": "Rejected, Pending during active admission, or AwaitingBackendConfirmation controllers stay out of ConnectedPlayerControllers; a scoped backend Confirm receipt is required before registration can proceed."
+    },
+    "host_retry": {
+      "source": "Payload/Hooks/Hooks.cpp:1897-1935 and TickFlushHook:2368-2375",
+      "finding": "EnsureListenHostMatchParticipant scans current-world host controllers each tick and can retry while strict admission is pending, but it does not insert a participant or quorum credit until RegisterAuthoritativeMatchParticipant accepts it."
+    },
+    "quorum": {
+      "source": "Payload/Hooks/Hooks.cpp:1645-1662, 2611-2642, 3500-3653",
+      "finding": "Start quorum is derived from exact confirmed roles; dispatch additionally requires initial-player readiness, MatchIntro, and a completed native MatchIntro flush. A Pawn alone does not satisfy the gate."
+    },
+    "invalid_state_separation": {
+      "source": "Payload/Hooks/Hooks.cpp:2544-2582; Payload/Network/Network.cpp:30-45,77-107",
+      "finding": "Native RoundState InvalidState is pre-first-round/cleanup idle data and is emitted through server_status, not Payload match.state. It must not be added to the payload match-state whitelist."
+    },
+    "loop_assessment": "No source evidence of an unconditional HOST/Pawn quorum bypass or a self-satisfying start loop. Repeated host scans while a strict seat is pending are bounded retries and remain fail-closed."
+  },
+  "existing_evidence": [
+    {
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-native-server-20260827/events.jsonl",
+      "lines": "231,251,351,354",
+      "observation": "Existing native snapshots show match_state WaitingToStart/match_sub_state WaitingToJoin with round_state InvalidState before the first round and again during cleanup."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/.tmp/ready-multiplayer-20260913/r12/native/source-contract.json",
+      "observation": "The prior review records the 11 producer match states, their source mapping, and that native gameplay/raw r12 status frames were not captured."
+    }
+  ],
+  "review_conclusions": [
+    "The concrete protocol bug is serde treating an expected diagnostic {} as Some(MatchJoinScope), producing missing field attempt_id.",
+    "For HOST local_authority_pending, playable_scope={} is source-expected before backend confirmation; after the 90-second pending deadline, ClearNativeMatchScopeLocked makes both scope fields {}. The user report does not identify which one was in the failed frame.",
+    "The parent deserializer change is correctly narrow by static inspection: empty/null diagnostic scopes become None, while malformed nonempty scopes remain errors.",
+    "No other scope-bearing command response should inherit the empty-object rule; their scopes are admission/cleanup proof and remain required.",
+    "The approximately 87-second timing is consistent with the Payload's 90-second pending timeout and post-clear status polling, but raw-frame capture is required to call that the exact causal chain.",
+    "HOST registration and role quorum remain fail-closed; waiting for Pawn is not evidence that a forced spawn or quorum bypass is correct.",
+    "InvalidState belongs to native server round_state idle semantics and must stay separate from payload match.state."
+  ],
+  "validation_limits": {
+    "tests_run": false,
+    "game_started": false,
+    "native_runtime_acceptance": "not established",
+    "raw_r13_payload_response": "not captured",
+    "secrets_recorded": false
+  }
+}
+

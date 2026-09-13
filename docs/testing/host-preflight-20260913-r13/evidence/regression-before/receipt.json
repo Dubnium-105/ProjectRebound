@@ -1,0 +1,19 @@
+{
+  "observed_at_utc": "2026-09-13T14:11:20.243160+00:00",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--lib",
+    "--features",
+    "vnt",
+    "payload_status_decodes_empty_native_scope_objects_as_absent"
+  ],
+  "exit_code": 101,
+  "scope": "New empty-scope fixture on unchanged r12 production parser; synthetic frames, native gameplay NOT_RUN",
+  "test_source_sha256": "db7fa9f7dd4eaa762c8e051f4e841ee7494aa412761c8017ecd8c6fa6f5a6000",
+  "source_stable": true,
+  "log_sha256": "6fee82cc8fa9791c2d3d5bcb1323f030f8a01459c222cd8c3886da9043e9fb98",
+  "expected_failure": "missing field `attempt_id`",
+  "release_ready": false
+}

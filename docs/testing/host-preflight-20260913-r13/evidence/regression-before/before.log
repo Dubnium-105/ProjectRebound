@@ -1,0 +1,22 @@
+   Compiling rebound_toolbox v0.9.12 (C:\wksp\ProjectReboundToolbox-clean-candidate-20260909)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 17.71s
+     Running unittests src\lib.rs (C:/wksp/ProjectReboundToolbox/target\debug\deps\rebound_toolbox-ac113a2fb8fad296.exe)
+
+running 1 test
+test server::pipe::tests::payload_status_decodes_empty_native_scope_objects_as_absent ... FAILED
+
+failures:
+
+---- server::pipe::tests::payload_status_decodes_empty_native_scope_objects_as_absent stdout ----
+
+thread 'server::pipe::tests::payload_status_decodes_empty_native_scope_objects_as_absent' (16232) panicked at src\server\pipe.rs:2622:18:
+called `Result::unwrap()` on an `Err` value: missing field `attempt_id`
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    server::pipe::tests::payload_status_decodes_empty_native_scope_objects_as_absent
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 367 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "scope": "Toolbox branch push plus read-only GitHub Actions/checks/status lookup",
+  "repository": "STanJK/ProjectReboundToolbox",
+  "branch": "codex/authoritative-only-20260907",
+  "commit": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+  "commit_url": "https://github.com/STanJK/ProjectReboundToolbox/commit/4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+  "observed_at_utc": "2026-09-13T14:30:58.6519744Z",
+  "ci_status": "NOT_RUN",
+  "observation": "Exact commit has no workflow run, check run, or commit status; absence is recorded as NOT_RUN, not PASS.",
+  "workflow_runs": [],
+  "check_runs": [],
+  "commit_status": {
+    "state": "pending",
+    "status_count": 0
+  },
+  "api_errors": {},
+  "push_verification": {
+    "ls_remote": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473\trefs/heads/codex/authoritative-only-20260907",
+    "local_head": "4cdefa78925d4e83a2cb8d1509c7baec16cf1473",
+    "working_tree_clean": true
+  },
+  "local_tests": "NOT_INCLUDED",
+  "mutations": "authorized Toolbox branch push only; no workflow was triggered",
+  "secrets_recorded": false
+}

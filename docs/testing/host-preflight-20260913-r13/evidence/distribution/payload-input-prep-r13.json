@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "prepared_at_utc": "2026-09-13T14:24:11.676448+00:00",
+  "status": "PASS_UNCHANGED_R12_PAYLOAD_COPIED_TO_R13_INPUT",
+  "source_payload": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r12\\signed\\Payload.dll",
+  "source_signature_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r12\\signed\\payload-signature-receipt.json",
+  "source_prep_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r12\\signed\\payload-input-prep-r12.json",
+  "target_payload": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r13\\signed\\Payload.dll",
+  "target_signature_receipt": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r13\\signed\\payload-signature-receipt.json",
+  "payload_source_commit": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+  "source_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+  "source_bytes": 2098488,
+  "target_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+  "target_bytes": 2098488,
+  "signature_receipt_copied_byte_identical": true,
+  "payload_unchanged_required": true,
+  "physical_native_acceptance": "NOT_RUN",
+  "release_ready": false
+}

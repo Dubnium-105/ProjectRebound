@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "scope": {
+    "attempt": "mat_<redacted>",
+    "candidate_role_type_only": true
+  },
+  "observed_at_utc": "2026-09-13T14:15:54Z",
+  "status": "PASS_READ_ONLY_AGGREGATE",
+  "source_identity": {
+    "deployed_backend_expected_commit": "8069d5e1126b8a585610b232e721aee45c57ee88"
+  },
+  "collection": {
+    "method": "authorized SSH to existing deployment; fixed aggregate-only Postgres SELECT",
+    "mutation": "none",
+    "raw_rows_read": false,
+    "raw_rows_emitted": false,
+    "player_ids_addresses_tokens_nonces_saved": false
+  },
+  "candidate_role_type_counts": [
+    {
+      "role": "HOST",
+      "candidate_type": "LAN",
+      "count": 2
+    },
+    {
+      "role": "HOST",
+      "candidate_type": "SRFLX",
+      "count": 2
+    },
+    {
+      "role": "MEMBER",
+      "candidate_type": "SRFLX",
+      "count": 2
+    }
+  ],
+  "candidate_totals_by_role": {
+    "HOST": 4,
+    "MEMBER": 2
+  },
+  "candidate_total": 6,
+  "interpretation_limit": "Counts identify stored candidate role/type distribution only; they do not identify request rejection cause or client response text."
+}

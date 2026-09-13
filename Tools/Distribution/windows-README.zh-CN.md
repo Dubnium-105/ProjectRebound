@@ -10,9 +10,9 @@
 
 如果 `game.payload.present` 为 `BLOCKED`，说明已安装的 Payload 与本包不匹配。请对 Toolbox 中配置的同一个游戏目录运行上述安装脚本，然后重新检查。
 
-r11 实测在 `authority_ready` 后因 `invalid native match state` 进入清理。r12 补齐 Toolbox 对 Payload 三个合法启动中间状态的解析，避免因等待原生或后端确认而误判失败。服务端 `RoundState=InvalidState` 是首次开局前的空闲观测，不代表崩溃；它与 Payload 对局状态是不同字段。未知状态仍拒绝，中间状态也不会被当成 Playable。r12 的多人原生结果必须重新采集；桌面启动或单独到达 `authority_ready` 都不能作为通过。
+r12 实测房主已监听，随后报 `missing field attempt_id`；成员候选协商报 `Invalid connection candidate`，游戏停在主菜单。r13 将 Payload 的空诊断 scope 对象解析为缺失，继续拒绝残缺的非空 scope，并按现有后端契约分类连接地址。有效 STUN SRFLX 优先，同类只发布一个候选，避免互相覆盖。原始拒绝帧和候选字段未采集，无法断言当时的具体内容。原生 `RoundState=InvalidState` 仍保留为首次开局前的空闲数据。桌面启动、停在主菜单或单独到达 `authority_ready` 均不能证明已进入战局。
 
-房主冻结前的运行时检查、启动时再次检查、房主准备和切换队伍按钮继续保留。本轮所有人统一使用 r12 包，完全退出旧版后创建全新大厅。包绑定现有已部署后端版本，Payload 字节不变；`release_ready=false`。
+房主冻结前的运行时检查、启动时再次检查、房主准备和切换队伍按钮继续保留。本轮所有人统一使用 r13 包，完全退出旧版后创建全新大厅。包绑定现有已部署后端版本，Payload 字节不变；`release_ready=false`。
 
 本轮用于三台实机的安装、登录、受管启动和原生准入证据采集。房主使用新增的“采集原生准入证据”按钮；它仍走真实 Steam 身份、冻结名单、签名 allocation、原生 Grant、Reserve/Confirm 和受管清理。
 
@@ -73,6 +73,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Restore-StrictPayload.
 
 ## 当前已知限制
 
-原生实机结果以本包对应的实际执行回执为准。r11 的状态解析失败是历史证据；旧版本结果或单次窗口启动都不能作为本包通过的依据。三机原生准入、角色出生与操作、准入负例、清理和下一局复用必须分别记录；缺少对应执行证据时保留 `NOT_RUN` 或具体 `BLOCKED`。
+原生实机结果以本包对应的实际执行回执为准。r12 的多人测试失败是历史证据；旧版本结果或单次窗口启动都不能作为本包通过的依据。三机原生准入、角色出生与操作、准入负例、清理和下一局复用必须分别记录；缺少对应执行证据时保留 `NOT_RUN` 或具体 `BLOCKED`。
 
 EXE 与 Payload 使用项目已有测试证书签名。证书不属于 Windows 默认受信根，签名状态可能显示为不受信任；本包不会安装根证书，也不包含私钥。签名和哈希检查结果、证书有效期及各制品源提交保存在包清单中；它们不代表生产发布已通过。
