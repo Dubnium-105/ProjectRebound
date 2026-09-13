@@ -1,0 +1,23 @@
+﻿{
+    "schema_version":  1,
+    "status":  "PASS_TEST_SIGNATURE_ONLY",
+    "started_at":  "2026-09-08T07:03:52.8506747Z",
+    "finished_at":  "2026-09-08T07:03:53.2990620Z",
+    "input_path":  "C:\\wksp\\ProjectRebound\\Payload\\x64\\Release\\Payload.dll",
+    "input_sha256":  "9897aaa4b58286c308b07fa05f52c9125000144cce14de247467cf1d7b3509e4",
+    "output_path":  "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260908\\distribution\\signed\\Payload.dll",
+    "output_sha256":  "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+    "output_bytes":  2098488,
+    "signer_subject":  "CN=Project Rebound Strict Roster Lab",
+    "signer_thumbprint":  "B041917B2322ED509435B72356BA5AD9EA053378",
+    "signer_valid_until":  "2027-08-26T14:32:08.0000000Z",
+    "authenticode_status":  "UnknownError",
+    "win_verify_trust_hresult":  -2146762487,
+    "private_key_exported":  false,
+    "trust_store_modified":  false,
+    "timestamping":  "NOT_RUN",
+    "release_ready":  false,
+    "failure_type":  null,
+    "script_sha256":  "7a33c2be43467fab835a36c3a3d396d38d5bc5c75b10a80de306761fba26ee85",
+    "scope":  "Actual test Authenticode signing and signature verification only; no native gameplay, production signing, updater publication, or full release acceptance."
+}

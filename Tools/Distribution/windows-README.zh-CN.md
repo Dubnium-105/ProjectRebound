@@ -8,9 +8,11 @@
 
 便携版 Toolbox EXE 更新**不会安装或替换 Boundary 游戏 Payload**。开始任何多人测试前，先完全退出 Boundary 和所有 Toolbox 窗口；执行包内的 `Install-StrictPayload.ps1 -GameWin64 <实际 Win64 目录>`，再对同一目录执行 `Check-ThisMachine.ps1 -GameWin64 <实际 Win64 目录>`。只有检查报告中的 `status: PASS` 才能继续多人测试；未发现游戏窗口或报告为 `BLOCKED` 都是前置阻塞，不能算测试通过。
 
-如果 `game.payload.present` 为 `BLOCKED`，说明已安装的 Payload 与本包不匹配。本次反馈的 r7 房主机存在这个差异，且游戏窗口没有出现。请对 Toolbox 中配置的同一个游戏目录运行上述安装脚本，然后重新检查。
+如果 `game.payload.present` 为 `BLOCKED`，说明已安装的 Payload 与本包不匹配。请对 Toolbox 中配置的同一个游戏目录运行上述安装脚本，然后重新检查。
 
-r8 会在 P2P 房主冻结名单前检查本机运行时，并保留脱敏后的启动失败原因；真正启动原生进程前仍会再次检查。房主准备和切换队伍按钮继续保留。本轮所有人统一使用 r8 包。后端和 Payload 字节不变；多人原生验收仍待完成，`release_ready=false`。
+r9 修正房主把传输代理端口当成游戏监听端口的问题：游戏启动参数与权威请求使用同一监听端点，原生端口校验继续保留。r8 实测已能打开房主游戏，但因 `authority_port_mismatch` 终止；从机在房主权威就绪前等待。r9 的多人原生结果仍需重新采集，不能沿用桌面启动检查作为通过。
+
+房主冻结前的运行时检查、启动时再次检查、房主准备和切换队伍按钮继续保留。本轮所有人统一使用 r9 包。后端和 Payload 字节不变；`release_ready=false`。
 
 本轮用于三台实机的安装、登录、受管启动和原生准入证据采集。房主使用新增的“采集原生准入证据”按钮；它仍走真实 Steam 身份、冻结名单、签名 allocation、原生 Grant、Reserve/Confirm 和受管清理。
 

@@ -1,0 +1,1031 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-09-13T07:46:31.367215+00:00",
+  "scope": "Read-only existing deployment aggregate for the supplied r9 lobby/Attempt window. Raw logs, DB rows, account identifiers, credentials, grants, and native nonces are omitted.",
+  "log_window_utc": {
+    "since": "2026-09-13T07:35:00Z",
+    "until": "2026-09-13T07:45:30Z"
+  },
+  "logs": [
+    {
+      "container_role": "control_plane",
+      "container": "project-rebound-control-plane-control-plane-1",
+      "docker_exit_code": 0,
+      "window_utc": {
+        "since": "2026-09-13T07:35:00Z",
+        "until": "2026-09-13T07:45:30Z"
+      },
+      "line_count": 953,
+      "raw_bytes": 213793,
+      "raw_sha256": "771d09e774f6cd172aeaacfe9bee7b96e0054c663910edd010ca4d3e0b9d731a",
+      "matching_line_count": 55,
+      "matching_lines_sanitized": [
+        {
+          "timestamp": "2026-09-13T07:38:48.814490828Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 8,
+          "line_index": 425
+        },
+        {
+          "timestamp": "2026-09-13T07:38:50.147915268Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/members/me/ready"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 5,
+          "line_index": 428
+        },
+        {
+          "timestamp": "2026-09-13T07:38:56.651536786Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 437
+        },
+        {
+          "timestamp": "2026-09-13T07:39:02.27249412Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 446
+        },
+        {
+          "timestamp": "2026-09-13T07:39:06.736533469Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 459
+        },
+        {
+          "timestamp": "2026-09-13T07:39:10.417318603Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 10,
+          "line_index": 468
+        },
+        {
+          "timestamp": "2026-09-13T07:39:12.098331274Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 471
+        },
+        {
+          "timestamp": "2026-09-13T07:39:12.477221753Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 472
+        },
+        {
+          "timestamp": "2026-09-13T07:39:16.138629168Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/join"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 83,
+          "line_index": 481
+        },
+        {
+          "timestamp": "2026-09-13T07:39:18.244785832Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 4,
+          "line_index": 486
+        },
+        {
+          "timestamp": "2026-09-13T07:39:18.545461309Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 487
+        },
+        {
+          "timestamp": "2026-09-13T07:39:19.969474706Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/members/me/ready"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 6,
+          "line_index": 491
+        },
+        {
+          "timestamp": "2026-09-13T07:39:24.643028184Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 501
+        },
+        {
+          "timestamp": "2026-09-13T07:39:26.609993924Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 502
+        },
+        {
+          "timestamp": "2026-09-13T07:39:29.956989933Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 513
+        },
+        {
+          "timestamp": "2026-09-13T07:39:30.928548337Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 516
+        },
+        {
+          "timestamp": "2026-09-13T07:39:33.489812314Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/members/me/ready"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 11,
+          "line_index": 522
+        },
+        {
+          "timestamp": "2026-09-13T07:39:34.871617437Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 27,
+          "line_index": 527
+        },
+        {
+          "timestamp": "2026-09-13T07:39:35.55862295Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 529
+        },
+        {
+          "timestamp": "2026-09-13T07:39:37.317163097Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 531
+        },
+        {
+          "timestamp": "2026-09-13T07:39:43.848999354Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/start"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 33,
+          "line_index": 542
+        },
+        {
+          "timestamp": "2026-09-13T07:39:45.61127411Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 7,
+          "line_index": 547
+        },
+        {
+          "timestamp": "2026-09-13T07:39:46.305949914Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 549
+        },
+        {
+          "timestamp": "2026-09-13T07:39:47.207232064Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 550
+        },
+        {
+          "timestamp": "2026-09-13T07:39:49.250437847Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/allocation"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 555
+        },
+        {
+          "timestamp": "2026-09-13T07:39:50.09245115Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 14,
+          "line_index": 558
+        },
+        {
+          "timestamp": "2026-09-13T07:39:50.293017783Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 559
+        },
+        {
+          "timestamp": "2026-09-13T07:39:52.236383942Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/heartbeat"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 6,
+          "line_index": 560
+        },
+        {
+          "timestamp": "2026-09-13T07:39:53.14057913Z",
+          "codes": [
+            "transport"
+          ],
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/transport"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 11,
+          "line_index": 562
+        },
+        {
+          "timestamp": "2026-09-13T07:39:56.557001496Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 5,
+          "line_index": 569
+        },
+        {
+          "timestamp": "2026-09-13T07:39:58.927842218Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 9,
+          "line_index": 574
+        },
+        {
+          "timestamp": "2026-09-13T07:40:02.19344086Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/heartbeat"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 1337,
+          "line_index": 578
+        },
+        {
+          "timestamp": "2026-09-13T07:40:02.223283643Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 579
+        },
+        {
+          "timestamp": "2026-09-13T07:40:06.989781739Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 5,
+          "line_index": 586
+        },
+        {
+          "timestamp": "2026-09-13T07:40:07.887574431Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 17,
+          "line_index": 587
+        },
+        {
+          "timestamp": "2026-09-13T07:40:08.556613413Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/heartbeat"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 6,
+          "line_index": 589
+        },
+        {
+          "timestamp": "2026-09-13T07:40:09.108064712Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 590
+        },
+        {
+          "timestamp": "2026-09-13T07:40:13.474736422Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 4,
+          "line_index": 598
+        },
+        {
+          "timestamp": "2026-09-13T07:40:15.429086903Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 13,
+          "line_index": 602
+        },
+        {
+          "timestamp": "2026-09-13T07:40:16.091630549Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/heartbeat"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 10,
+          "line_index": 604
+        },
+        {
+          "timestamp": "2026-09-13T07:40:20.136941095Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 609
+        },
+        {
+          "timestamp": "2026-09-13T07:40:22.20436474Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 12,
+          "line_index": 613
+        },
+        {
+          "timestamp": "2026-09-13T07:40:23.719888033Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/heartbeat"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 10,
+          "line_index": 617
+        },
+        {
+          "timestamp": "2026-09-13T07:40:23.990198288Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 3,
+          "line_index": 618
+        },
+        {
+          "timestamp": "2026-09-13T07:40:29.391041673Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 12,
+          "line_index": 624
+        },
+        {
+          "timestamp": "2026-09-13T07:40:30.544789253Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/heartbeat"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 6,
+          "line_index": 626
+        },
+        {
+          "timestamp": "2026-09-13T07:40:31.938394689Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 4,
+          "line_index": 629
+        },
+        {
+          "timestamp": "2026-09-13T07:40:32.608273342Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 630
+        },
+        {
+          "timestamp": "2026-09-13T07:40:37.026768703Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 7,
+          "line_index": 637
+        },
+        {
+          "timestamp": "2026-09-13T07:40:37.874549638Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 11,
+          "line_index": 638
+        },
+        {
+          "timestamp": "2026-09-13T07:40:39.855584103Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/heartbeat"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 624,
+          "line_index": 642
+        },
+        {
+          "timestamp": "2026-09-13T07:40:40.515380041Z",
+          "phases": [
+            "complete"
+          ],
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/complete"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 15,
+          "line_index": 644
+        },
+        {
+          "timestamp": "2026-09-13T07:40:41.956294764Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 2,
+          "line_index": 648
+        },
+        {
+          "timestamp": "2026-09-13T07:40:42.43889416Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-attempts/mat_<redacted>/host/native-cleared"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 12,
+          "line_index": 649
+        },
+        {
+          "timestamp": "2026-09-13T07:40:47.331241476Z",
+          "http_statuses": [
+            200
+          ],
+          "endpoint_names": [
+            "/v1/match-lobbies/lby_<redacted>/presence"
+          ],
+          "scope_marker_count": 1,
+          "http_status": 200,
+          "duration_ms": 6,
+          "line_index": 662
+        }
+      ],
+      "endpoint_status_counts": {
+        "/v1/match-lobbies/lby_<redacted>/presence": {
+          "200": 15
+        },
+        "/v1/match-lobbies/lby_<redacted>/members/me/ready": {
+          "200": 3
+        },
+        "/v1/match-lobbies/lby_<redacted>": {
+          "200": 24
+        },
+        "/v1/match-lobbies/lby_<redacted>/join": {
+          "200": 1
+        },
+        "/v1/match-lobbies/lby_<redacted>/start": {
+          "200": 1
+        },
+        "/v1/match-attempts/mat_<redacted>/host/allocation": {
+          "200": 1
+        },
+        "/v1/match-attempts/mat_<redacted>/host/heartbeat": {
+          "200": 7
+        },
+        "/v1/match-attempts/mat_<redacted>/transport": {
+          "200": 1
+        },
+        "/v1/match-attempts/mat_<redacted>/host/complete": {
+          "200": 1
+        },
+        "/v1/match-attempts/mat_<redacted>/host/native-cleared": {
+          "200": 1
+        }
+      },
+      "raw_log_persisted": false,
+      "credentials_or_ids_emitted": false
+    },
+    {
+      "container_role": "meta_server",
+      "container": "project-rebound-control-plane-meta-server-1",
+      "docker_exit_code": 0,
+      "window_utc": {
+        "since": "2026-09-13T07:35:00Z",
+        "until": "2026-09-13T07:45:30Z"
+      },
+      "line_count": 348,
+      "raw_bytes": 76014,
+      "raw_sha256": "64289cbb2701a5ae90ded8a860e70b24e4cc96cf79278ecc9a8c91e105607eea",
+      "matching_line_count": 0,
+      "matching_lines_sanitized": [],
+      "endpoint_status_counts": {},
+      "raw_log_persisted": false,
+      "credentials_or_ids_emitted": false
+    },
+    {
+      "container_role": "edge_relay",
+      "container": "project-rebound-edge-relay-edge-relay-1",
+      "docker_exit_code": 0,
+      "window_utc": {
+        "since": "2026-09-13T07:35:00Z",
+        "until": "2026-09-13T07:45:30Z"
+      },
+      "line_count": 0,
+      "raw_bytes": 0,
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "matching_line_count": 0,
+      "matching_lines_sanitized": [],
+      "endpoint_status_counts": {},
+      "raw_log_persisted": false,
+      "credentials_or_ids_emitted": false
+    }
+  ],
+  "deployment": {
+    "docker_ps_exit_code": 0,
+    "project_containers": [
+      {
+        "name": "project-rebound-control-plane-meta-server-1",
+        "image": "ghcr.io/dubnium-105/projectrebound-meta-server:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "image_id": "sha256:6f5e92a55207c0fea3eb9e01f08856d436d80aecd1bfb8b2f2305ce40ca37026",
+        "repo_digests": [
+          "ghcr.io/dubnium-105/projectrebound-meta-server@sha256:6f5e92a55207c0fea3eb9e01f08856d436d80aecd1bfb8b2f2305ce40ca37026"
+        ],
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:20:37.859557763Z",
+        "oci_revision": "8069d5e1126b8a585610b232e721aee45c57ee88"
+      },
+      {
+        "name": "project-rebound-control-plane-grafana-1",
+        "image": "grafana/grafana:11.4.0",
+        "image_id": "sha256:d8ea37798ccc41061a62ab080f2676dda6bf7815558499f901bdb0f533a456fb",
+        "repo_digests": [
+          "grafana/grafana@sha256:d8ea37798ccc41061a62ab080f2676dda6bf7815558499f901bdb0f533a456fb"
+        ],
+        "running": true,
+        "health": null,
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:19:58.75132852Z",
+        "oci_revision": null
+      },
+      {
+        "name": "project-rebound-control-plane-prometheus-1",
+        "image": "prom/prometheus:v2.55.1",
+        "image_id": "sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3",
+        "repo_digests": [
+          "prom/prometheus@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3"
+        ],
+        "running": true,
+        "health": null,
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:19:58.196041527Z",
+        "oci_revision": null
+      },
+      {
+        "name": "project-rebound-control-plane-control-plane-1",
+        "image": "ghcr.io/dubnium-105/projectrebound-control-plane:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "image_id": "sha256:bc98ac6d82427ee352237314ff13989fae776fd0f8dfceda18c2658fe55a2bca",
+        "repo_digests": [
+          "ghcr.io/dubnium-105/projectrebound-control-plane@sha256:bc98ac6d82427ee352237314ff13989fae776fd0f8dfceda18c2658fe55a2bca"
+        ],
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:19:51.972420019Z",
+        "oci_revision": "8069d5e1126b8a585610b232e721aee45c57ee88"
+      },
+      {
+        "name": "project-rebound-control-plane-blackbox-exporter-1",
+        "image": "prom/blackbox-exporter:v0.26.0",
+        "image_id": "sha256:92e05d5fe0df01d3980518dc42f07b778a8997048b57392ebc7f7391ebd7bb06",
+        "repo_digests": [
+          "prom/blackbox-exporter@sha256:92e05d5fe0df01d3980518dc42f07b778a8997048b57392ebc7f7391ebd7bb06"
+        ],
+        "running": true,
+        "health": null,
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:19:49.123575983Z",
+        "oci_revision": null
+      },
+      {
+        "name": "project-rebound-control-plane-admin-web-1",
+        "image": "ghcr.io/dubnium-105/projectrebound-admin-web:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "image_id": "sha256:37fc38d939ca9dbddeabd19d555214c10589889007db18336c2f9e33d5ec1851",
+        "repo_digests": [
+          "ghcr.io/dubnium-105/projectrebound-admin-web@sha256:37fc38d939ca9dbddeabd19d555214c10589889007db18336c2f9e33d5ec1851"
+        ],
+        "running": true,
+        "health": null,
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:19:49.122200936Z",
+        "oci_revision": "8069d5e1126b8a585610b232e721aee45c57ee88"
+      },
+      {
+        "name": "project-rebound-edge-relay-edge-relay-1",
+        "image": "ghcr.io/dubnium-105/projectrebound-edge-relay:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "image_id": "sha256:b82049df5df6c982f747e1ec409812d6af143b298ca8124299f0ea258524370c",
+        "repo_digests": [
+          "ghcr.io/dubnium-105/projectrebound-edge-relay@sha256:b82049df5df6c982f747e1ec409812d6af143b298ca8124299f0ea258524370c"
+        ],
+        "running": true,
+        "health": null,
+        "restart_count": 0,
+        "started_at": "2026-09-08T16:19:25.1395069Z",
+        "oci_revision": "8069d5e1126b8a585610b232e721aee45c57ee88"
+      },
+      {
+        "name": "project-rebound-control-plane-postgres-1",
+        "image": "postgres:17-alpine",
+        "image_id": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+        "repo_digests": [
+          "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
+        ],
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "started_at": "2026-08-28T07:12:57.642675573Z",
+        "oci_revision": null
+      },
+      {
+        "name": "project-rebound-control-plane-redis-1",
+        "image": "redis:7-alpine",
+        "image_id": "sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf",
+        "repo_digests": [
+          "redis@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf"
+        ],
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "started_at": "2026-08-28T07:12:57.644042026Z",
+        "oci_revision": null
+      },
+      {
+        "name": "project-rebound-control-plane-caddy-1",
+        "image": "caddy:2-alpine",
+        "image_id": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+        "repo_digests": [
+          "caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648"
+        ],
+        "running": true,
+        "health": null,
+        "restart_count": 0,
+        "started_at": "2026-08-12T15:38:16.505276506Z",
+        "oci_revision": null
+      },
+      {
+        "name": "project-rebound-control-plane-minio-1",
+        "image": "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772",
+        "image_id": "sha256:cf3dadcfa1fb0324f43958bad1abba986d53c4ecc04d4d50b46c7dcda28bd3cd",
+        "repo_digests": [
+          "quay.io/minio/minio@sha256:cf3dadcfa1fb0324f43958bad1abba986d53c4ecc04d4d50b46c7dcda28bd3cd"
+        ],
+        "running": true,
+        "health": "healthy",
+        "restart_count": 0,
+        "started_at": "2026-08-08T17:26:02.180775019Z",
+        "oci_revision": "5c15584ae6aac083b2177faa6dbc43ad1df00e93"
+      }
+    ]
+  },
+  "source_identity": {
+    "local_main_head": "511d7ade7c6d4e5b13ca681a1f930a0f79b9a415",
+    "deployed_backend_expected": "8069d5e1126b8a585610b232e721aee45c57ee88",
+    "deployed_source_is_backend_commit_8069": true,
+    "main_head_backend_and_adminweb_equal_to_deployed_backend_source": true
+  },
+  "schema": {
+    "exit_code": 0,
+    "schema_version": "48"
+  },
+  "public_http_probes": [
+    {
+      "host": "api.project-rebound.space",
+      "path": "/health/live",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "host": "api.project-rebound.space",
+      "path": "/health/ready",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "host": "api.project-rebound.space",
+      "path": "/v1/client/config",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "host": "api.project-rebound.space",
+      "path": "/v1/p2p-rooms",
+      "http_status": 410,
+      "error_type": "HTTPError"
+    },
+    {
+      "host": "cnapi.project-rebound.space",
+      "path": "/health/ready",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "host": "meta.project-rebound.space",
+      "path": "/health/live",
+      "http_status": 200,
+      "error_type": null
+    },
+    {
+      "host": "meta.project-rebound.space",
+      "path": "/health/ready",
+      "http_status": 200,
+      "error_type": null
+    }
+  ],
+  "transport_endpoint_semantics_from_backend_contract": {
+    "vnt_host_vnt_port": "managed VNT node advertised endpoint used by the transport layer",
+    "endpoint_host_endpoint_port": "native P2P authority game listen endpoint supplied by the frozen HOST readiness call and persisted on the match attempt",
+    "relationship": "the VNT node endpoint and the native game listen endpoint are separate; the backend does not define the VNT node port as the game listen port"
+  },
+  "assessment": {
+    "backend_authority_port_mismatch_in_window": "NOT_OBSERVED_IN_SANITIZED_BACKEND_LOGS",
+    "backend_transport_scope_requests": "INSPECTED_READ_ONLY",
+    "backend_wrong_port_root_cause": "NOT_ESTABLISHED_FROM_BACKEND_RECORDS",
+    "toolbox_mapping_review": "REQUIRED_SEPARATE_CLIENT_EVIDENCE",
+    "member_waiting": "EXPECTED_WHILE_HOST_AUTHORITY_STARTUP_OR_TERMINAL_FAILURE_IS_UNRESOLVED",
+    "native_gameplay": "NOT_RUN",
+    "physical_machine_matrix": "NOT_RUN"
+  }
+}

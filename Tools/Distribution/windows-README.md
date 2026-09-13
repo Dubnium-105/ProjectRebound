@@ -8,9 +8,11 @@ This package connects to the existing `api.project-rebound.space` / `cnapi.proje
 
 The portable Toolbox EXE update does **not** install or replace the Boundary game Payload. Before any multiplayer attempt, fully close Boundary and every Toolbox window, run the included `Install-StrictPayload.ps1 -GameWin64 <actual Win64 directory>`, then run `Check-ThisMachine.ps1 -GameWin64 <same Win64 directory>`. Continue only when the check report has `status: PASS`; a missing game window or a `BLOCKED` report blocks multiplayer and is not a test pass.
 
-If `game.payload.present` is `BLOCKED`, the installed Payload does not match this package. The reported r7 host had this mismatch and no game window appeared. Run the installer above against the same game directory configured in Toolbox, then repeat the check.
+If `game.payload.present` is `BLOCKED`, the installed Payload does not match this package. Run the installer above against the same game directory configured in Toolbox, then repeat the check.
 
-The r8 client checks the P2P owner's local runtime before freezing the roster and preserves the redacted cause of launch failures. It repeats the runtime checks immediately before native startup. Owner Ready and team switching remain available. Everyone must use the same r8 package for this round. Backend and Payload bytes are unchanged; native multiplayer acceptance remains pending and `release_ready=false`.
+The r9 client fixes the host transport proxy port being used as the game's listen port. The process arguments and authority request now share one configured game endpoint, with the native port check retained. In the reported r8 hardware test, the host game opened but terminated with `authority_port_mismatch`; the member waited for host authority readiness. Native multiplayer results must be collected again for r9; desktop startup checks do not establish a pass.
+
+The runtime checks before roster freezing and native startup, Owner Ready, and team switching remain available. Everyone must use the same r9 package for this round. Backend and Payload bytes are unchanged; `release_ready=false`.
 
 This round covers installation, login, managed startup, and native admission proof collection on three physical machines. The owner uses the new **Collect native proof** button. It retains real Steam identities, a frozen roster, signed allocation, native Grants, Reserve/Confirm, and managed cleanup.
 

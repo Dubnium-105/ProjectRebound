@@ -1,0 +1,46 @@
+Diff in \\?\C:\wksp\ProjectReboundToolbox-clean-candidate-20260909\src\vnt\rooms.rs:977:
+             synthetic_active_room(ActiveRoomRole::Member, ActiveRoomTransport::Legacy, None);
+         let error = authority_endpoint_for(&active, 7_777, None).unwrap_err();
+ 
+-        assert!(error
+-            .to_string()
+-            .contains("Only a managed Host can prepare an authority launch"));
++        assert!(
++            error
++                .to_string()
++                .contains("Only a managed Host can prepare an authority launch")
++        );
+     }
+ 
+     #[test]
+Diff in \\?\C:\wksp\ProjectReboundToolbox-clean-candidate-20260909\src\vnt\rooms.rs:986:
+     fn authority_endpoint_rejects_zero_listen_port() {
+-        let active =
+-            synthetic_active_room(ActiveRoomRole::Host, ActiveRoomTransport::Legacy, None);
++        let active = synthetic_active_room(ActiveRoomRole::Host, ActiveRoomTransport::Legacy, None);
+         let error = authority_endpoint_for(&active, 0, None).unwrap_err();
+ 
+         assert_eq!(error.to_string(), "authority game port is zero");
+Diff in \\?\C:\wksp\ProjectReboundToolbox-clean-candidate-20260909\src\vnt\rooms.rs:977:
+             synthetic_active_room(ActiveRoomRole::Member, ActiveRoomTransport::Legacy, None);
+         let error = authority_endpoint_for(&active, 7_777, None).unwrap_err();
+ 
+-        assert!(error
+-            .to_string()
+-            .contains("Only a managed Host can prepare an authority launch"));
++        assert!(
++            error
++                .to_string()
++                .contains("Only a managed Host can prepare an authority launch")
++        );
+     }
+ 
+     #[test]
+Diff in \\?\C:\wksp\ProjectReboundToolbox-clean-candidate-20260909\src\vnt\rooms.rs:986:
+     fn authority_endpoint_rejects_zero_listen_port() {
+-        let active =
+-            synthetic_active_room(ActiveRoomRole::Host, ActiveRoomTransport::Legacy, None);
++        let active = synthetic_active_room(ActiveRoomRole::Host, ActiveRoomTransport::Legacy, None);
+         let error = authority_endpoint_for(&active, 0, None).unwrap_err();
+ 
+         assert_eq!(error.to_string(), "authority game port is zero");

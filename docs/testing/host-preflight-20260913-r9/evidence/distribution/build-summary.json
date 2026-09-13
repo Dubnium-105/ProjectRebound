@@ -1,0 +1,12 @@
+{
+  "started_at_utc": "2026-09-13T08:00:37.457199+00:00",
+  "finished_at_utc": "2026-09-13T08:03:24.889270+00:00",
+  "exit_code": 0,
+  "build_driver": "scripts/build-strict-candidate.ps1 (PowerShell 7)",
+  "source_commit": "87a9fc8869560fe30867aaf98536baaad8217551",
+  "log_sha256": "c982e0adabf5be0c7d0f4e26e1a366c74ae8d40dbc0e4d5f5a51b9aad39805b9",
+  "scope": "r9 production asset build only; native acceptance NOT_RUN",
+  "prior_r7_payload_mismatch_is_current_blocker": false,
+  "ci_status": "NOT_RUN",
+  "ci_receipt_sha256": "8ff4e2edb16d5b1e82eb7fc4d1594677648950ed7a2563ba9a03259489cf57c7"
+}
