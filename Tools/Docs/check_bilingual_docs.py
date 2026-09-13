@@ -33,6 +33,11 @@ GENERATED_PATH_PARTS = {
 AUDIT_SNAPSHOT_ROOTS = (
     Path("docs/implementation/strict-roster-20260907"),
     Path("docs/testing/hardware-test-20260908"),
+    # The r7 publication-correction subtree contains the original support
+    # request and byte-bound evidence receipts. It is an immutable raw
+    # evidence snapshot; excluding this exact subtree does not exempt the
+    # maintained r7 handoff documents or any later r8/r9 documentation.
+    Path("docs/testing/attempt-transport-20260908-r7/evidence"),
 )
 
 

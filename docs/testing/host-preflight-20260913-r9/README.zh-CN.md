@@ -1,3 +1,5 @@
+[English](README.md) | 简体中文
+
 # r9 原生 Authority 端口目标与错误原因修复
 
 r8 的两台实机结果为 FAILED：房主游戏窗口已经打开并等待 authority，但 Legacy hostproxy 目标被当作原生游戏监听目标发送，Payload 的 authority_port_mismatch 因此终止启动。用户日志没有记录实际远端代理端口，文档不把合成测试夹具端口当作实机事实。r9 将 HOST 原生 authority 目标与 Member/代理房间目标分离；只有 HOST 启动时显式传入 -port 和 -external，并验证原生 ACK，Member 目标保持 endpoint-only；refresh 复用相同的 HOST 目标配置和 ACK 校验。VNT HOST 使用稳定虚拟地址，不等待尚未发布的 Member endpoint，从而去掉启动目标依赖游戏已经就绪的循环依赖；VNT 不可用时仍在准备阶段报错。错误脱敏规则保留 named pipe: Strict authority startup failed 这类首因，同时继续移除真实管道路径、结构化 pipe/pipe_name 字段、Token 与 nonce。

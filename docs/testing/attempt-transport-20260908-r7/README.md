@@ -15,7 +15,7 @@ Toolbox `43a4c82fe781ed67df6b4f4f82d1ff976ad586be`; deployed Backend `8069d5e112
 - Local desktop: `PASS_REAL_DESKTOP_STARTUP_OWNER_READY_TEAM_LEAVE_ONLY`; exact checks are in the [desktop receipt](evidence/distribution/desktop-r7-receipt.json).
 - Distribution: every archive entry byte-checked, lab signed, no updater publication or external upload.
 
-[r7 ZIP](../../../artifacts/hardware-test-20260908-r7/rebound-hardware-test-20260908-r7-windows-x64.zip); SHA-256 `c70935f5e671e136b190de6093ab6ef1d1474954e412236dd80382ca7bc63eb2`.
+Local package: `rebound-hardware-test-20260908-r7-windows-x64.zip`; SHA-256 `c70935f5e671e136b190de6093ab6ef1d1474954e412236dd80382ca7bc63eb2`. The ZIP is a distribution artifact outside the repository; its [build receipt](evidence/distribution/package-build-receipt.json) is tracked here.
 
 Use this same package on all three or more physical machines and follow the included test matrix. r7 native admission, a second cold start, and a complete playable match remain unverified. `native_authority_admission_verified=false` and `release_ready=false`. The user's two-machine failure is actual failure evidence; remote executable provenance was not verified.
 

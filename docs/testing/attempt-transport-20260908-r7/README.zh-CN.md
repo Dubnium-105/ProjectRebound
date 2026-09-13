@@ -15,7 +15,7 @@
 - 本机：`PASS_REAL_DESKTOP_STARTUP_OWNER_READY_TEAM_LEAVE_ONLY`，详细范围见 [实机回执](evidence/distribution/desktop-r7-receipt.json)。
 - 分发：ZIP 中每个文件按清单验字节；实验签名；未发布更新渠道或上传外部。
 
-[下载 r7 ZIP](../../../artifacts/hardware-test-20260908-r7/rebound-hardware-test-20260908-r7-windows-x64.zip)，SHA-256：`c70935f5e671e136b190de6093ab6ef1d1474954e412236dd80382ca7bc63eb2`。
+本地测试包：`rebound-hardware-test-20260908-r7-windows-x64.zip`，SHA-256：`c70935f5e671e136b190de6093ab6ef1d1474954e412236dd80382ca7bc63eb2`。ZIP 属于仓库外的分发产物，仓库内保留其[构建回执](evidence/distribution/package-build-receipt.json)。
 
 三台或更多实机统一使用 r7，按包内中文测试矩阵执行，记录房主具体错误与成员阶段。r7 的三机原生准入、第二次冷启动及完整可玩对局均未验收，`native_authority_admission_verified=false`、`release_ready=false` 不变。用户提供的双机失败记录是真实失败证据，远端 EXE 哈希尚未核验。
 
@@ -23,4 +23,4 @@
 
 本轮发生过一次公开误提交：四份含数据段的数据库转储及本地 fixture 源码被加入提交 `45e825f4e3799da460dfedecc9791b123698dffd`。已用精确旧 SHA 租约将公开分支撤回干净提交，原文件保留在本地并忽略。但旧提交对象在核查时仍可访问，未宣称 GitHub 缓存已清除，亦未排除转储内账号或凭据暴露。该提交不是部署源码，也未进入本测试包。详见 [纠正记录](evidence/publication-correction/publication-correction-receipt.json) 与 [尚未发送的清除申请](evidence/publication-correction/github-history-removal-request.md)；GitHub 侧清除按其 [敏感数据移除流程](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository) 另行处理。
 
-2026-09-09 更新：清除申请已提交，两个仓库的公开提交状态见 [后续记录](publication-followup-20260909.md)。
+2026-09-09 更新：清除申请已提交，两个仓库的公开提交状态见 [后续记录](publication-followup-20260909.zh-CN.md)。
