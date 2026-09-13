@@ -12,8 +12,10 @@ RUN CGO_ENABLED=1 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/decrypt
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/test-ticket-verifier ./cmd/test-ticket-verifier
 
 FROM debian:bookworm-slim AS runtime-common
+# Refresh the inherited PCRE2 package for CVE-2026-86145 and CVE-2026-89161.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates && \
+    apt-get install -y --no-install-recommends ca-certificates libpcre2-8-0 && \
+    dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libpcre2-8-0)" ge '10.42-1+deb12u1' && \
     rm -rf /var/lib/apt/lists/* && \
     groupadd --system --gid 999 app && \
     useradd --system --uid 999 --gid app --no-create-home app
