@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "purpose": "hardware-test-only",
+  "release_ready": false,
+  "package_id": "rebound-hardware-test-20260913-r12",
+  "supersedes_package": "rebound-hardware-test-20260913-r11",
+  "candidate_change": "r12 carries forward the reviewed strict Toolbox candidate with the three producer-emitted intermediate match.state values accepted by the native pipe consumer. This parser change does not grant readiness or Playable evidence; the source contract records that native three-state acceptance is still unrun. Strict roster, credential-purpose, account-epoch, and native admission checks remain enforced. Physical native acceptance has not run.",
+  "source_commits": {
+    "ProjectRebound": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+    "Toolbox": "a9d010fd9cdf9f7cb9c45c00afd9c2072289ab9d"
+  },
+  "source_scope": "ProjectRebound identifies the unchanged Payload source; the independently deployed Backend source is recorded below. The current Main HEAD is not a deployment fact.",
+  "project_rebound_main_head_at_assembly": "3cecb0bbd4c848bf8e02d47691e0e1e5ad2e62cc",
+  "backend_candidate_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+  "backend_implementation_source_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+  "backend_deployment_status": "PASS_EXISTING_BACKEND_DEPLOYMENT_ONLY",
+  "backend_schema_required": 48,
+  "backend_schema_observed": 48,
+  "backend_ci_url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34247644433",
+  "backend_deployment_url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/34250303094",
+  "backend_health_evidence": {
+    "path": "r12/backend/r12-attempt-evidence.json",
+    "sha256": "240b94cee2e8bfa0efd7bf3fb04de1f73beda33609ec508b5f19a94f0b1780d1",
+    "observed_at_utc": "2026-09-13T13:26:38Z",
+    "status": "PASS_READ_ONLY_HEALTH_EVIDENCE",
+    "deployed_commit": "8069d5e1126b8a585610b232e721aee45c57ee88",
+    "runtime_roles": [
+      {
+        "role": "control_plane",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "role": "meta_server",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "role": "edge_relay",
+        "running": true,
+        "health": "no_healthcheck"
+      }
+    ],
+    "public_probe_count": 6,
+    "public_probe_http_200_count": 6,
+    "mutation": "none"
+  },
+  "service_origins": [
+    "https://api.project-rebound.space",
+    "https://cnapi.project-rebound.space",
+    "https://meta.project-rebound.space"
+  ],
+  "meta_logic_endpoint": {
+    "address": "logic.project-rebound.space:443",
+    "protocol": "TLS TCP",
+    "tls_server_name": "logic.project-rebound.space"
+  },
+  "deployment_receipt_sha256": "c5a3fb6b4a42267a5fd0b1ae46dcb20e1ab00f3ebc6e1a77afc90618218e9e0d",
+  "r11_predecessor_package": {
+    "package_id": "rebound-hardware-test-20260913-r11",
+    "zip_sha256": "45d581a497e98606ab5e8b3bb688be07adb18f6545f48bfad05d82267c29573a",
+    "zip_bytes": 23540605,
+    "immutable": true
+  },
+  "r12_source_contract_evidence": {
+    "path": "r12/native/source-contract-receipt.json",
+    "sha256": "799002cd79f0609ddaf3ef4b5c983bacba4defb677ded9a485ecc20cc06e4a90",
+    "schema_version": "r12-source-contract-v1",
+    "scope": {
+      "mode": "read_only_static_source_and_existing_evidence",
+      "game_started": false,
+      "tests_run": false,
+      "source_modified": false,
+      "secrets_recorded": false
+    },
+    "review_validation_status": "Static review and receipt generation only; no cargo test, CI, native launch, or live multiplayer acceptance was performed.",
+    "source_confirmed": "Payload can emit all 11 listed match.state values, and the parent consumer change aligns the whitelist with that producer.",
+    "wire_field": "payload_status_ack.match.state",
+    "producer_wire_state_count": 11,
+    "baseline_consumer_whitelist": [
+      "idle",
+      "queued",
+      "waiting_game_login",
+      "travel_requested",
+      "world_ready",
+      "playable",
+      "failed",
+      "cancelled"
+    ],
+    "current_worktree_consumer_whitelist": [
+      "idle",
+      "queued",
+      "waiting_game_login",
+      "travel_requested",
+      "world_ready",
+      "local_pawn_ready",
+      "waiting_backend_confirmation",
+      "local_authority_pending",
+      "playable",
+      "failed",
+      "cancelled"
+    ],
+    "parent_change_scope": "The three source-proven intermediate ConnectStageName values were added; parsing acceptance does not grant readiness or Playable evidence."
+  },
+  "ipc_protocol": "strict-roster-v2",
+  "feature_mode": "Tauri custom-protocol, embedded assets, product features, no lab-testing",
+  "pinned_game": {
+    "filename": "ProjectBoundarySteam-Win64-Shipping.exe",
+    "sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "bytes": 102362112
+  },
+  "msvc_minimum_version": "14.50.35717",
+  "strict_payload_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+  "required_artifacts": {
+    "windows-x64": [
+      {
+        "path": "Payload.dll",
+        "bytes": 2098488,
+        "sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183"
+      },
+      {
+        "path": "rebound_toolbox_tauri.exe",
+        "bytes": 49495864,
+        "sha256": "7e2bde4b71c56aa4d29905f091aa27b81946a48d37db2857b6c7dc8409b21946"
+      }
+    ]
+  },
+  "signatures": {
+    "payload": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "9897aaa4b58286c308b07fa05f52c9125000144cce14de247467cf1d7b3509e4",
+      "output_sha256": "8d471662e947bcb6baf3b0380e23f90bef614f76ac9e7e8a82e2cfbf48619183",
+      "output_bytes": 2098488,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    },
+    "toolbox": {
+      "status": "PASS_TEST_SIGNATURE_ONLY",
+      "input_sha256": "08b7e3fc28985dc00e21102c231e8ee620f06df881184a4f76148428a52e9db5",
+      "output_sha256": "7e2bde4b71c56aa4d29905f091aa27b81946a48d37db2857b6c7dc8409b21946",
+      "output_bytes": 49495864,
+      "signer_subject": "CN=Project Rebound Strict Roster Lab",
+      "signer_thumbprint": "B041917B2322ED509435B72356BA5AD9EA053378",
+      "signer_valid_until": "2027-08-26T14:32:08.0000000Z",
+      "authenticode_status": "UnknownError",
+      "win_verify_trust_hresult": -2146762487,
+      "private_key_exported": false,
+      "trust_store_modified": false,
+      "timestamping": "NOT_RUN"
+    }
+  },
+  "native_connection_collection": {
+    "status": "NOT_RUN_ON_THREE_PHYSICAL_MACHINES",
+    "entry_point": "Owner: Collect native proof; all three frozen seats must be real Steam sessions"
+  },
+  "native_online_acceptance": {
+    "status": "BLOCKED",
+    "reason": "r12 has no independent three-machine native proof yet. The source contract records the pipe legal-start evidence gap and cannot promote this package to playable."
+  },
+  "permitted_test_scope": [
+    "reversible installation",
+    "package and dependency checks",
+    "Toolbox and native login",
+    "three-machine managed native admission collection",
+    "managed cleanup and second cold-start collection"
+  ],
+  "distribution_kind": "portable test delta over a complete existing Rebound runtime",
+  "publication": {
+    "updater_published": false,
+    "externally_uploaded": false
+  }
+}

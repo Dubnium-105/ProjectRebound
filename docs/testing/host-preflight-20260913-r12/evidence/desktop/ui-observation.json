@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-09-13T13:40:48.986Z",
+  "status": "PASS_REAL_DESKTOP_STARTUP_ONLY",
+  "executable": "C:/wksp/ProjectRebound/artifacts/hardware-test-20260913-r12/rebound-hardware-test-20260913-r12-windows-x64/rebound_toolbox_tauri.exe",
+  "executable_sha256": "7e2bde4b71c56aa4d29905f091aa27b81946a48d37db2857b6c7dc8409b21946",
+  "executable_bytes": 49495864,
+  "toolbox_commit": "a9d010fd9cdf9f7cb9c45c00afd9c2072289ab9d",
+  "observations": [
+    "Signed packaged executable opened the production Tauri home screen",
+    "Build 0.9.12 displayed",
+    "Authoritative lobby directory displayed zero rooms",
+    "No active Boundary process reported",
+    "Debug panel collapsed; no account identifiers retained"
+  ],
+  "version_check": {
+    "status": "FAILED_DISPLAY_OBSERVED",
+    "message": "版本: 检查失败",
+    "fixed_this_turn": false
+  },
+  "screenshot": {
+    "path": "startup.jpg",
+    "bytes": 65313,
+    "sha256": "c3015189a8af80d69acc033826e1306b5b6a5da89e6c3e26ce6a0f81922bc1fa"
+  },
+  "native_game_started": false,
+  "physical_native_acceptance": "NOT_RUN",
+  "release_ready": false
+}

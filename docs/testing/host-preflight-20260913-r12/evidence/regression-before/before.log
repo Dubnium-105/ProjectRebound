@@ -1,0 +1,21 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.74s
+     Running unittests src\lib.rs (C:/wksp/ProjectReboundToolbox/target\debug\deps\rebound_toolbox-ac113a2fb8fad296.exe)
+
+running 1 test
+test server::pipe::tests::payload_status_accepts_native_startup_stages_without_promoting_readiness ... FAILED
+
+failures:
+
+---- server::pipe::tests::payload_status_accepts_native_startup_stages_without_promoting_readiness stdout ----
+
+thread 'server::pipe::tests::payload_status_accepts_native_startup_stages_without_promoting_readiness' (25028) panicked at src\server\pipe.rs:2541:41:
+native stage local_pawn_ready: Payload returned an invalid native match state
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    server::pipe::tests::payload_status_accepts_native_startup_stages_without_promoting_readiness
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 365 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

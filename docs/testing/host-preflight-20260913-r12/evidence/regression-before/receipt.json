@@ -1,0 +1,19 @@
+{
+  "observed_at_utc": "2026-09-13T13:28:15.729743+00:00",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--lib",
+    "--features",
+    "vnt",
+    "payload_status_accepts_native_startup_stages_without_promoting_readiness"
+  ],
+  "exit_code": 101,
+  "scope": "New regression on unchanged r11 production parser; synthetic payload frame, not native gameplay",
+  "test_source_sha256": "6b549657a7049fd38ffa1ee2d5cbebb56c4b1daef94c617342c3fc952b4a9cda",
+  "log_sha256": "2e810c2421728ac01c4353812ffbcf5e132d371013ab58b53e6564b944c7bfb2",
+  "earlier_filter_attempt": "NOT_RUN: unqualified --exact filter selected zero tests; not counted as passing",
+  "expected_failure": "native stage local_pawn_ready: Payload returned an invalid native match state",
+  "release_ready": false
+}

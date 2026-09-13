@@ -1,0 +1,67 @@
+{
+  "schema_version": "r12-cross-source-binding-v1",
+  "generated_at_utc": "2026-09-13T13:36:52.5467021Z",
+  "scope": "Payload subtree only; this does not bind Toolbox, Backend, or the whole Main repository.",
+  "build_source_commit": "98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d",
+  "current_main_commit": "3cecb0bbd4c848bf8e02d47691e0e1e5ad2e62cc",
+  "payload_subtree_git_tree_at_build_source": "dd4ab8444b1184b4c76fa12f62ea5b84d093f5d0",
+  "payload_subtree_git_tree_at_current_main": "dd4ab8444b1184b4c76fa12f62ea5b84d093f5d0",
+  "tracked_payload_file_count_at_build_source": 2821,
+  "comparison": {
+    "command": "git diff --quiet 98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d HEAD -- Payload",
+    "payload_diff_empty": true,
+    "payload_source_match": true,
+    "current_worktree_payload_diff_empty": true,
+    "current_worktree_note": "Main worktree has unrelated documentation changes; no Payload source file is modified."
+  },
+  "production_source_hashes_sha256": [
+    {
+      "path": "Payload/ClientLogic/ClientLogic.cpp",
+      "sha256": "C05A0C0FB8CE0735FBB95A5D28BCCEB33ED4E020001AFFBB9DB8B061744EFD75",
+      "role": "ConnectStage enum, ConnectStageName, match status serialization"
+    },
+    {
+      "path": "Payload/ClientLogic/ClientLogic.h",
+      "sha256": "4F5EC9A6A2BA519374BB46C14265B28D8B172F11864FCE6DAD49EF57232094EA",
+      "role": "match status interface"
+    },
+    {
+      "path": "Payload/dllmain.cpp",
+      "sha256": "36D94EF8175ED281431D9E2E5E25822949918CE354AA5D211F7B6863D182A25E",
+      "role": "BuildPayloadStatus and IPC callback registration"
+    },
+    {
+      "path": "Payload/Communication/CommandFramework.cpp",
+      "sha256": "1F4246B47D86B5B0F1E62219A294B2CAD03DDA678F7E7250159420BFD88F2532",
+      "role": "payload_status request and correlated ack"
+    },
+    {
+      "path": "Payload/Network/Network.cpp",
+      "sha256": "7372796253AC277CB3B34ACEC62A2293FE27D0884D5AA069407EFB428FA9A4EE",
+      "role": "native RoundState to server status"
+    },
+    {
+      "path": "Payload/Hooks/Hooks.cpp",
+      "sha256": "6CFD4273DBD140A5EC92F44F2AB5B0C06DF351CDC486227B9A75A84C0ED9A592",
+      "role": "initial InvalidState countdown gate"
+    },
+    {
+      "path": "Payload/SDK/ProjectBoundary_classes.hpp",
+      "sha256": "CB06FAA4A1E5F1F9CB0DC9A0065F2E909454C970FC3DB247C29A29CC9FCF0CE9",
+      "role": "APBGameState state layout"
+    }
+  ],
+  "binding_provenance": {
+    "producer_mapping": "Payload/ClientLogic/ClientLogic.cpp:99-112,262-280,2440-2482",
+    "ipc_builder": "Payload/dllmain.cpp:370-433",
+    "ipc_ack": "Payload/Communication/CommandFramework.cpp:1518-1534",
+    "round_state_separation": "Payload/Network/Network.cpp:30-45,77-107; Payload/dllmain.cpp:2722-2745",
+    "skill_source_hash": "C:/wksp/ProjectRebound/.agents/skills/debug-boundary-native/references/current-findings.md:11"
+  },
+  "validation_limits": {
+    "tests_run": false,
+    "game_started": false,
+    "native_runtime_acceptance": "not established",
+    "secrets_recorded": false
+  }
+}

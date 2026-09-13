@@ -654,3 +654,10 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - 虚表 `+0x10` 是 VA `0x14086AFF0` 空操作返回，仅接收长度/容量；`+0x150` 是 VA `0x1419CD9F0` 同步 writer。writer 将完整 64 位 source 指针从 RDX 经 R15 传入 `0x1419D1A30`，不能采用 IDA 自动推断的 `int` 参数类型。
 - writer 只扩容自己的 `+0x98` 缓冲并同步复制。bit-copy 为无调用的叶函数，只读 source、写 destination；没有保留输入指针或异步派发。serializer 保存分支的释放仅针对自己的编码/换字节序临时区，不针对输入 FString 或 Data；Payload 中间 NUL 拒绝与原调用点约束限定了这项结论的适用范围。
 - 完整静态记录、原始 IDA 输出和原字节验证在 `docs/implementation/strict-roster-20260907/evidence/serializer-static-callees-20260908/`。这补齐了此前未解析虚调用的静态证据缺口；动态 sidecar 的零覆盖仍不算通过，原生完整负向矩阵、Playable/多人验收仍独立阻塞，不能据此打开 verified 标志。
+
+## 34. Payload 启动中间状态与原生 RoundState 分离（2026-09-13）
+
+- r11 双机反馈在 `authority_ready` 后报 `Payload returned an invalid native match state` 并进入受管清理。该错误来自 Toolbox `parse_payload_status_frame` 对 `match.state` 的白名单，不来自 `server_status.round_state`；旧诊断未输出实际值，不能从用户日志判定具体是哪一个中间状态。
+- Payload source `98f57092ce3b3ce5b0e8d24c56d8a82e66c3127d` 的 `ClientLogic.cpp::ConnectStageName` 会产生 `local_pawn_ready`、`waiting_backend_confirmation`、`local_authority_pending`，r11 Toolbox 白名单漏了这三个值。r12 仅补齐这三个合法诊断状态；未知值继续拒绝，严格 Playable 仍要求精确 `playable`、完整作用域、operation、原生 Pawn/Net、后端确认 nonce 和本地 world 证据。
+- 固定构建 `Hooks.cpp::TickServer` 在 `RoundState` 包含 `InvalidState` 时等待人数并启动首次开局倒计时，因此该值是开局前空闲语义。现有 server-status parser 已保留该观测，不应将它改写为成功状态或混入 `match.state`。
+- r12 的旧解析器回归已实际重现 `local_pawn_ready` 被拒绝；合成管道帧/源码对照只证明状态契约修复，三台真实 Steam 机器的原生准入、出生操作与清理复用需独立验收。证据归档于 `docs/testing/host-preflight-20260913-r12/`；`native_authority_admission_verified` 保持 false。

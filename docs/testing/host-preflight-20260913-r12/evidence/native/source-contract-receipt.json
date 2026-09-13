@@ -1,0 +1,163 @@
+{
+  "schema_version": "r12-source-contract-v1",
+  "generated_at_utc": "2026-09-13T13:33:22.6716136Z",
+  "scope": {
+    "mode": "read_only_static_source_and_existing_evidence",
+    "game_started": false,
+    "tests_run": false,
+    "source_modified": false,
+    "secrets_recorded": false
+  },
+  "source_revisions": {
+    "payload_main_repo": {
+      "path": "C:/wksp/ProjectRebound",
+      "commit": "3cecb0bbd4c848bf8e02d47691e0e1e5ad2e62cc",
+      "payload_files_clean_against_commit": true,
+      "repo_worktree_note": "Unrelated current-findings/distribution documentation files were modified; no Payload source file was modified."
+    },
+    "toolbox_consumer_baseline": {
+      "path": "C:/wksp/ProjectReboundToolbox-clean-candidate-20260909",
+      "commit": "06350349da2b9ef9d2a680f6654888e3f1f74779",
+      "pipe_worktree": "modified by parent; uncommitted",
+      "pipe_rs_sha256_at_review": "39954986399A0E4C556A240BC3993AE1FD17779374188033D41E213F664854C4"
+    }
+  },
+  "fixed_game_contract": {
+    "executable": "ProjectBoundarySteam-Win64-Shipping.exe",
+    "expected_sha256": "181c49ffb522b3eb01014c84fd9d3a2a5c0b66ae80a6a6addff4bdd6f8125843",
+    "provenance": "C:/wksp/ProjectRebound/.agents/skills/debug-boundary-native/references/current-findings.md:11",
+    "local_runtime_verification": "not performed; no game launch or preflight"
+  },
+  "payload_match_status_producer": {
+    "wire_field": "payload_status_ack.match.state",
+    "enum_source": "Payload/ClientLogic/ClientLogic.cpp:99-112",
+    "wire_name_source": "Payload/ClientLogic/ClientLogic.cpp:262-280",
+    "serialization_source": "Payload/ClientLogic/ClientLogic.cpp:2440-2482",
+    "wire_states": [
+      {"enum": "Idle", "wire": "idle", "name_line": 266},
+      {"enum": "Queued", "wire": "queued", "name_line": 267},
+      {"enum": "WaitingAfterLogin", "wire": "waiting_game_login", "name_line": 268},
+      {"enum": "TravelRequested", "wire": "travel_requested", "name_line": 269},
+      {"enum": "WorldReady", "wire": "world_ready", "name_line": 270},
+      {"enum": "LocalPawnReady", "wire": "local_pawn_ready", "name_line": 271},
+      {"enum": "WaitingBackendConfirmation", "wire": "waiting_backend_confirmation", "name_lines": "272-273"},
+      {"enum": "LocalAuthorityPending", "wire": "local_authority_pending", "name_lines": "274-275"},
+      {"enum": "Playable", "wire": "playable", "name_line": 276},
+      {"enum": "Failed", "wire": "failed", "name_line": 277},
+      {"enum": "Cancelled", "wire": "cancelled", "name_line": 278}
+    ],
+    "ipc_chain": {
+      "callback_registration": "Payload/dllmain.cpp:2711-2717 and 3193-3198",
+      "request_ack": "Payload/Communication/CommandFramework.cpp:1518-1534",
+      "status_builder": "Payload/dllmain.cpp:370-433"
+    }
+  },
+  "producer_file_hashes": [
+    {
+      "path": "Payload/ClientLogic/ClientLogic.cpp",
+      "sha256": "C05A0C0FB8CE0735FBB95A5D28BCCEB33ED4E020001AFFBB9DB8B061744EFD75",
+      "source_commit": "3cecb0bbd4c848bf8e02d47691e0e1e5ad2e62cc",
+      "role": "ConnectStage enum, ConnectStageName, match status serialization"
+    },
+    {
+      "path": "Payload/ClientLogic/ClientLogic.h",
+      "sha256": "4F5EC9A6A2BA519374BB46C14265B28D8B172F11864FCE6DAD49EF57232094EA",
+      "source_commit": "3cecb0bbd4c848bf8e02d47691e0e1e5ad2e62cc",
+      "role": "GetClientMatchStatus declaration at line 60"
+    },
+    {
+      "path": "Payload/dllmain.cpp",
+      "sha256": "36D94EF8175ED281431D9E2E5E25822949918CE354AA5D211F7B6863D182A25E",
+      "source_commit": "3cecb0bbd4c848bf8e02d47691e0e1e5ad2e62cc",
+      "role": "BuildPayloadStatus and payload_status callback registration"
+    },
+    {
+      "path": "Payload/Communication/CommandFramework.cpp",
+      "sha256": "1F4246B47D86B5B0F1E62219A294B2CAD03DDA678F7E7250159420BFD88F2532",
+      "source_commit": "3cecb0bbd4c848bf8e02d47691e0e1e5ad2e62cc",
+      "role": "payload_status request and correlated ack"
+    },
+    {
+      "path": "Payload/Communication/CommandFramework.h",
+      "sha256": "DC590C7170FCDCE565F2CF67F29D772C9F0E872607A3C0ACEC6CE7A100271168",
+      "source_commit": "3cecb0bbd4c848bf8e02d47691e0e1e5ad2e62cc",
+      "role": "payload status callback interface at line 67"
+    },
+    {
+      "path": "Payload/Network/Network.cpp",
+      "sha256": "7372796253AC277CB3B34ACEC62A2293FE27D0884D5AA069407EFB428FA9A4EE",
+      "source_commit": "3cecb0bbd4c848bf8e02d47691e0e1e5ad2e62cc",
+      "role": "native RoundState snapshot and server status payload"
+    },
+    {
+      "path": "Payload/Hooks/Hooks.cpp",
+      "sha256": "6CFD4273DBD140A5EC92F44F2AB5B0C06DF351CDC486227B9A75A84C0ED9A592",
+      "source_commit": "3cecb0bbd4c848bf8e02d47691e0e1e5ad2e62cc",
+      "role": "initial InvalidState countdown gate"
+    },
+    {
+      "path": "Payload/SDK/ProjectBoundary_classes.hpp",
+      "sha256": "CB06FAA4A1E5F1F9CB0DC9A0065F2E909454C970FC3DB247C29A29CC9FCF0CE9",
+      "source_commit": "3cecb0bbd4c848bf8e02d47691e0e1e5ad2e62cc",
+      "role": "APBGameState MatchSubState/RoundState layout and IsRoundInProgress declaration"
+    }
+  ],
+  "toolbox_consumer_validation": {
+    "source": "src/server/pipe.rs:1300-1318",
+    "baseline_whitelist": [
+      "idle",
+      "queued",
+      "waiting_game_login",
+      "travel_requested",
+      "world_ready",
+      "playable",
+      "failed",
+      "cancelled"
+    ],
+    "current_worktree_whitelist": [
+      "idle",
+      "queued",
+      "waiting_game_login",
+      "travel_requested",
+      "world_ready",
+      "local_pawn_ready",
+      "waiting_backend_confirmation",
+      "local_authority_pending",
+      "playable",
+      "failed",
+      "cancelled"
+    ],
+    "parent_change": "The three source-proven intermediate ConnectStageName values were added; parsing acceptance does not grant readiness or Playable evidence.",
+    "unknown_state_behavior": "The same validator still rejects InvalidState, unknown, window_visible, empty, and PLAYABLE in the parent-added source test; tests were not run in this review."
+  },
+  "native_round_state_contract": {
+    "field_layout": "Payload/SDK/ProjectBoundary_classes.hpp:15410-15415 and 15529-15533",
+    "initial_gate": "Payload/Hooks/Hooks.cpp:2543-2558 checks IsRoundInProgress()==false and RoundState containing InvalidState, then initializes a 30-second MatchStartCountdown when the configured player minimum is met.",
+    "countdown": "Payload/Hooks/Hooks.cpp:2560-2582 decrements the countdown and opens role selection at zero.",
+    "server_status_path": "Payload/Network/Network.cpp:30-45,77-107 and Payload/dllmain.cpp:2722-2745 expose this native value as server_status.round_state/serverState.",
+    "separation": "This native RoundState field is separate from Payload match.state, which is emitted by ConnectStageName."
+  },
+  "existing_evidence": [
+    {
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-native-server-20260827/events.jsonl",
+      "lines": "231,251",
+      "observation": "Real native snapshots show match_state WaitingToStart, match_sub_state WaitingToJoin, round_state InvalidState with current_round 0 before a first round."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/.tmp/strict-roster-native-server-20260827/events.jsonl",
+      "lines": "351,354",
+      "observation": "The same InvalidState value also appears during final cleanup; it is not a unique payload connection stage."
+    },
+    {
+      "path": "C:/wksp/ProjectRebound/.tmp/ready-multiplayer-20260913/r12/backend/r12-attempt-evidence.json",
+      "lines": "20-24,301,303-311",
+      "observation": "Raw logs and per-line events were not retained; native gameplay is NOT_RUN; the user log did not record a concrete match.state value."
+    }
+  ],
+  "review_conclusion": {
+    "source_confirmed": "Payload can emit all 11 listed match.state values, and the parent consumer change aligns the whitelist with that producer.",
+    "specific_missed_value_from_user_log": "unknown; the supplied log only said invalid native match state",
+    "invalid_state_rule": "Do not whitelist native RoundState InvalidState in payload match.state validation.",
+    "validation_status": "Static review and receipt generation only; no cargo test, CI, native launch, or live multiplayer acceptance was performed."
+  }
+}

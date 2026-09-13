@@ -10,9 +10,9 @@ The portable Toolbox EXE update does **not** install or replace the Boundary gam
 
 If `game.payload.present` is `BLOCKED`, the installed Payload does not match this package. Run the installer above against the same game directory configured in Toolbox, then repeat the check.
 
-The reported r10 run received `SESSION_REVOKED` during startup and then cancelled the game launch; backend records correlate with normal login credential rotation. R11 repairs retry eligibility for old requests after rotation and returns current session credentials for account validation and launch renewal. Actual revocation, logout, account changes and strict native admission checks remain enforced. R11 native multiplayer results must be collected again; desktop startup or reaching `authority_ready` alone does not establish a pass.
+The reported r11 run entered cleanup after `authority_ready` because of `invalid native match state`. R12 adds the three legitimate Payload startup states missing from Toolbox parsing, so waiting for native or backend confirmation is no longer rejected as a protocol error. Server `RoundState=InvalidState` is an idle observation before the first round, not crash evidence; it is a different field from Payload match state. Unknown states remain rejected, and intermediate states cannot establish Playable. R12 native multiplayer results must be collected again; desktop startup or reaching `authority_ready` alone does not establish a pass.
 
-The runtime checks before roster freezing and native startup, Owner Ready, and team switching remain available. Everyone must use the same r11 package for this round, fully exit old versions and create a new lobby. The package binds the existing deployed backend version and unchanged Payload bytes; `release_ready=false`.
+The runtime checks before roster freezing and native startup, Owner Ready, and team switching remain available. Everyone must use the same r12 package for this round, fully exit old versions and create a new lobby. The package binds the existing deployed backend version and unchanged Payload bytes; `release_ready=false`.
 
 This round covers installation, login, managed startup, and native admission proof collection on three physical machines. The owner uses the new **Collect native proof** button. It retains real Steam identities, a frozen roster, signed allocation, native Grants, Reserve/Confirm, and managed cleanup.
 
@@ -73,6 +73,6 @@ The restore script restores the old DLL only when the backup hash is correct, th
 
 ## Known limitations
 
-Native hardware results must come from execution receipts for this exact package. The r9 `authority_ready`/OS 231 failure is historical evidence and does not establish an r10 result; neither it nor a window-opening check establishes the result of this build. Three-machine admission, character spawn and control, rejection cases, cleanup, and reuse in a new match need separate evidence. Keep missing executions as `NOT_RUN`, or record a concrete `BLOCKED` condition.
+Native hardware results must come from execution receipts for this exact package. The r11 state-parsing failure is historical evidence; earlier build results or a window-opening check cannot establish acceptance for this build. Three-machine admission, character spawn and control, rejection cases, cleanup, and reuse in a new match need separate evidence. Keep missing executions as `NOT_RUN`, or record a concrete `BLOCKED` condition.
 
 The EXE and Payload are signed with the project's existing test certificate. The certificate is not trusted by the default Windows root store, so its signature may display as untrusted; this package does not install a root certificate and contains no private key. Signature and hash results, certificate validity, and source commits for each artifact are recorded in the package manifest; they do not mean that production release has passed.
