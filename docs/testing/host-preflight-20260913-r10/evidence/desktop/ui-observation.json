@@ -1,0 +1,21 @@
+{
+  "observed_at_utc": "2026-09-13T09:53:25.818Z",
+  "app": "process:C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260913-r10\\rebound-hardware-test-20260913-r10-windows-x64\\rebound_toolbox_tauri.exe",
+  "window_title": "ProjectRebound ToolBox",
+  "status": "PASS_REAL_DESKTOP_STARTUP_ONLY",
+  "observations": [
+    "Signed r10 package window was selected by exact executable path",
+    "Launch console, Steam control and authoritative lobby controls rendered",
+    "No active lobby, zero open rooms and game process not running were displayed",
+    "Ports displayed available",
+    "The terminal r9 client was closed before launching r10"
+  ],
+  "version_check": {
+    "display": "CHECK_FAILED",
+    "status": "FAILED_DISPLAY_OBSERVED",
+    "scope": "Version availability is not counted as a pass; same indicator was visible in the prior r9 window"
+  },
+  "native_game_launch": "NOT_RUN",
+  "three_machine_admission": "NOT_RUN",
+  "release_ready": false
+}

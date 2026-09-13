@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-09-13T09:36:40.343075+00:00",
+  "scope": "User-reported two-machine r9 failure and source-correlated diagnosis; not independent native acceptance",
+  "reported_release": "r9",
+  "reported_result": "FAILED",
+  "time_zone": "Asia/Hong_Kong (UTC+08:00)",
+  "reported_date": "2026-09-13",
+  "lobby_id": "lby_7110a43e69bb4a48bb6202058e39f950",
+  "attempt_id": "mat_d8a3d4f9d46a4edb9451fcd9470698d8",
+  "timeline": [
+    {
+      "at": "17:24:35",
+      "role": "HOST",
+      "event": "start_native_authority_validation requested"
+    },
+    {
+      "at": "17:24:38",
+      "role": "HOST",
+      "event": "frozen roster / native validation accepted"
+    },
+    {
+      "at": "17:24:48",
+      "role": "HOST",
+      "event": "transport_ready"
+    },
+    {
+      "at": "17:25:25",
+      "role": "HOST",
+      "event": "process_started"
+    },
+    {
+      "at": "17:25:27",
+      "role": "HOST",
+      "event": "authority_ready"
+    },
+    {
+      "at": "17:25:33",
+      "role": "MEMBER",
+      "event": "automatic launch / waiting_for_carrier"
+    },
+    {
+      "at": "17:25:40",
+      "role": "HOST",
+      "event": "cleanup_pending"
+    },
+    {
+      "at": "17:25:41",
+      "role": "HOST",
+      "event": "connect to named pipe [REDACTED_PIPE]: all pipe instances are busy (os error 231)"
+    },
+    {
+      "at": "17:25:41",
+      "role": "MEMBER",
+      "event": "transport_ready / launching"
+    },
+    {
+      "at": "17:25:44",
+      "role": "HOST",
+      "event": "failed / cleanup_pending"
+    },
+    {
+      "at": "17:25:45",
+      "role": "MEMBER",
+      "event": "MEMBER lease response is terminal: launch operation cancelled during startup"
+    },
+    {
+      "at": "17:25:49",
+      "role": "MEMBER",
+      "event": "terminal P2P_AUTHORITY_LAUNCH_FAILED"
+    }
+  ],
+  "source_observations": [
+    "Payload ListenerLoop creates one per-launch named-pipe server instance and serves that client until it disconnects.",
+    "Initial HOST confirmation keeps confirm_pipe alive while calling the proof/Playable wait function, which opens the same named pipe.",
+    "The native proof wait also keeps its status pipe alive while calling admission/event pumps that open the same named pipe.",
+    "Same-world refresh similarly retains its pipe across Backend proof and nested Playable polling.",
+    "The match supervisor executes the launch action synchronously, so admission/event pumping must continue inside both native-proof and normal Playable wait loops."
+  ],
+  "diagnosis": "Source-confirmed nested single-instance pipe ownership is consistent with the reported OS 231 after authority_ready. Raw per-process pipe tracing was not supplied.",
+  "source_binding": {
+    "toolbox_commit": "87a9fc8869560fe30867aaf98536baaad8217551",
+    "runtime_git_blob_sha256": "513a296631165257e49f287209355a0a6365e3839765770f44867ac8ab639f8a",
+    "main_commit": "cef5f890465f73c0ae53fd58d8df3e7d9ea8b576",
+    "payload_command_framework_git_blob_sha256": "0f4a53e278f061a88c5f704d5de76530c2ad8a572f111b44e543a727cd7f8b91"
+  },
+  "unavailable_evidence": [
+    "raw native ACK/pipe trace",
+    "physical three-machine run",
+    "completed native cleanup receipt from the host"
+  ],
+  "r10_native_authority_admission": "NOT_RUN",
+  "r10_playable_acceptance": "NOT_RUN",
+  "release_ready": false,
+  "redactions": "Steam account identifiers, actual pipe names, tokens and native nonces are excluded"
+}

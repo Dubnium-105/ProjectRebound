@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "source_commit": "642760be87439cea10f4b57f8b7368197e845d45",
+  "hash_mode": "raw file bytes",
+  "scope": "r10 source, local test, build, preflight and desktop evidence; reported r9 failure and read-only backend state; r10 native acceptance NOT_RUN",
+  "files": [
+    {
+      "path": "evidence/backend.json",
+      "bytes": 32196,
+      "sha256": "03891c7840388afffbeb35fce7b191244e5a5b7ea85e12aefe687c28b499fb59"
+    },
+    {
+      "path": "evidence/ci-toolbox.json",
+      "bytes": 1008,
+      "sha256": "59a03ada1612ed0a0ae4ba9b4c879d87ab2025935df4078249e1b6f559616e6e"
+    },
+    {
+      "path": "evidence/committed-source-binding.json",
+      "bytes": 12760,
+      "sha256": "c7f467ed918d72f4c25b40293bdeda5f0c0e13da709631ddb323d0ad0dd7cb76"
+    },
+    {
+      "path": "evidence/desktop/startup.png",
+      "bytes": 64677,
+      "sha256": "d758f8f3713dc2163c92735bc96d0e4c027745896c65a48df1a2618f7e43bbc4"
+    },
+    {
+      "path": "evidence/desktop/ui-observation.json",
+      "bytes": 965,
+      "sha256": "9211a20d59bc96b252532f054b33d53049417b16fbf0092274cce766b3aa722c"
+    },
+    {
+      "path": "evidence/distribution/build-summary.json",
+      "bytes": 562,
+      "sha256": "8443001abd4703d3ec93ee933ddfb7e062d1283ff6ceaf140a90251a6dc316b2"
+    },
+    {
+      "path": "evidence/distribution/package-build-receipt.json",
+      "bytes": 1004,
+      "sha256": "2d13de35115fdcb092e4f42e57d69162e42eb6cb49423a62b5be8c5223850b56"
+    },
+    {
+      "path": "evidence/distribution/payload-signature-receipt.json",
+      "bytes": 1314,
+      "sha256": "fc8e2763d9dcbc602c485c049bc21573935b28406312b5976e905150ffd72e38"
+    },
+    {
+      "path": "evidence/distribution/preflight.json",
+      "bytes": 39262,
+      "sha256": "a1d7d595512d4270fbb4cb56746717cb36399afb3453def72befa89df21e786e"
+    },
+    {
+      "path": "evidence/distribution/public-metadata.json",
+      "bytes": 6642,
+      "sha256": "3ea285f3382136f3998841b5bd9f4ba2f318e4c5ff8605b3fab867e65c92ce11"
+    },
+    {
+      "path": "evidence/distribution/strict-candidate.json",
+      "bytes": 1550,
+      "sha256": "53aba3414909610781c31e67378e90b78fc226df5d9537de25e1b2402b8fc27c"
+    },
+    {
+      "path": "evidence/distribution/tauri-build-r10.log",
+      "bytes": 1937,
+      "sha256": "251ee659ead020e4fdc0421cda845338cfd1541eea473a8eaad1469c4a4da40a"
+    },
+    {
+      "path": "evidence/distribution/toolbox-signature-receipt.json",
+      "bytes": 1318,
+      "sha256": "274c28a5a5f0d061849e3b1348de661545fcc29d752156b643cf6a293f855d43"
+    },
+    {
+      "path": "evidence/native/reported-r9-failure-and-source-cause.json",
+      "bytes": 3538,
+      "sha256": "f1fc7691d4b821509093b051466e753661a24f89b0d0a929dcd0d9732b4c8530"
+    },
+    {
+      "path": "evidence/native/source-review.json",
+      "bytes": 3631,
+      "sha256": "1f1e136c2d6deef0365e54704bc7ae5db31c30a45f78cc46ccd68245d63abc9a"
+    },
+    {
+      "path": "evidence/rust/execution-receipt.json",
+      "bytes": 14832,
+      "sha256": "62aec4d5aef5fe914c07059b6db0f209b7980ee03f98e5f60057e4db77a2fb9d"
+    },
+    {
+      "path": "evidence/rust/fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evidence/rust/rust-lib.log",
+      "bytes": 33438,
+      "sha256": "c10a106f4f4e2637af0bd91ee107b71a9efd5d687a866a3c27138bcb834bfadf"
+    },
+    {
+      "path": "evidence/rust/tauri-fmt.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evidence/rust/tauri-tests.log",
+      "bytes": 2000,
+      "sha256": "89a010fb5b33d620f4bbd87057b9e8f24ef20047887cb843d4348a3178e0fb1c"
+    }
+  ]
+}

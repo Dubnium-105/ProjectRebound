@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "scope": "read-only GitHub Actions/checks/commit-status lookup",
+  "repository": "STanJK/ProjectReboundToolbox",
+  "branch": "codex/authoritative-only-20260907",
+  "commit": "642760be87439cea10f4b57f8b7368197e845d45",
+  "commit_url": "https://github.com/STanJK/ProjectReboundToolbox/commit/642760be87439cea10f4b57f8b7368197e845d45",
+  "observed_at_utc": "2026-09-13T09:46:44Z",
+  "ci_status": "NOT_RUN",
+  "observation": "no workflow run, check run, or commit status was recorded for this exact commit",
+  "workflow_runs": [],
+  "workflow_run_counts": {
+    "total": 0,
+    "by_status": {},
+    "by_conclusion": {}
+  },
+  "check_runs": [],
+  "check_run_counts": {
+    "total": 0,
+    "by_status": {},
+    "by_conclusion": {}
+  },
+  "commit_status": {
+    "state": "pending",
+    "status_count": 0,
+    "by_state": {},
+    "statuses": []
+  },
+  "api_errors": {},
+  "local_tests": "NOT_INCLUDED",
+  "mutations": "none; workflows were not triggered"
+}

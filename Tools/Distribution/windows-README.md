@@ -10,9 +10,9 @@ The portable Toolbox EXE update does **not** install or replace the Boundary gam
 
 If `game.payload.present` is `BLOCKED`, the installed Payload does not match this package. Run the installer above against the same game directory configured in Toolbox, then repeat the check.
 
-The r9 client fixes the host transport proxy port being used as the game's listen port. The process arguments and authority request now share one configured game endpoint, with the native port check retained. In the reported r8 hardware test, the host game opened but terminated with `authority_port_mismatch`; the member waited for host authority readiness. Native multiplayer results must be collected again for r9; desktop startup checks do not establish a pass.
+The reported r9 run reached `authority_ready`, but the main client named-pipe transaction returned Windows OS error 231 and native startup failed. The r10 candidate shortens that transaction and releases pipe ownership while preserving strict native admission. It does not bypass native checks. R10 native multiplayer results must be collected again; desktop startup or reaching `authority_ready` alone does not establish a pass.
 
-The runtime checks before roster freezing and native startup, Owner Ready, and team switching remain available. Everyone must use the same r9 package for this round. Backend and Payload bytes are unchanged; `release_ready=false`.
+The runtime checks before roster freezing and native startup, Owner Ready, and team switching remain available. Everyone must use the same r10 package for this round. The package binds the existing deployed backend version and unchanged Payload bytes; `release_ready=false`.
 
 This round covers installation, login, managed startup, and native admission proof collection on three physical machines. The owner uses the new **Collect native proof** button. It retains real Steam identities, a frozen roster, signed allocation, native Grants, Reserve/Confirm, and managed cleanup.
 
@@ -73,6 +73,6 @@ The restore script restores the old DLL only when the backup hash is correct, th
 
 ## Known limitations
 
-Native hardware results must come from execution receipts for this exact package. Historical versions stopped before native login; neither those failures nor a window-opening check establish the result of this build. Three-machine admission, character spawn and control, rejection cases, cleanup, and reuse in a new match need separate evidence. Keep missing executions as `NOT_RUN`, or record a concrete `BLOCKED` condition.
+Native hardware results must come from execution receipts for this exact package. The r9 `authority_ready`/OS 231 failure is historical evidence and does not establish an r10 result; neither it nor a window-opening check establishes the result of this build. Three-machine admission, character spawn and control, rejection cases, cleanup, and reuse in a new match need separate evidence. Keep missing executions as `NOT_RUN`, or record a concrete `BLOCKED` condition.
 
 The EXE and Payload are signed with the project's existing test certificate. The certificate is not trusted by the default Windows root store, so its signature may display as untrusted; this package does not install a root certificate and contains no private key. Signature and hash results, certificate validity, and source commits for each artifact are recorded in the package manifest; they do not mean that production release has passed.

@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-09-13T09:55:21.4611617Z",
+  "review_status": "APPROVED_SCOPE",
+  "repository": "C:/wksp/ProjectReboundToolbox-clean-candidate-20260909",
+  "commit": "642760be87439cea10f4b57f8b7368197e845d45",
+  "review_scope": [
+    "Independent read-only review of the committed runtime pipe-lifetime change",
+    "Single-instance Payload named-pipe reconnect and nested-operation paths",
+    "Synchronous native validation/Playable wait admission and connection pumping",
+    "Native cleanup handle lifetime and exact scope/ownership retention",
+    "Runtime/controller lock scope around preflight and event pumping",
+    "Actual Windows named-pipe fixture source and recorded execution evidence"
+  ],
+  "findings": {
+    "actionable_defects": [],
+    "observations": [
+      "server::pipe::with_connection opens one PID-verified client handle and releases it when the closure returns, including closure errors.",
+      "All changed authority supervisor/status/admission/event/confirmation/cleanup transactions are short scoped. Backend HTTP calls and subsequent native transactions occur after the prior File is dropped.",
+      "The synchronous native validation and Playable loops pump admissions and connection events before each status transaction, so the MatchLobby worker does not starve those pipelines while waiting.",
+      "The host proof loop does not need an event pump: Backend P2PAuthorityReady persists the initial HOST CONNECTED proof before that poll; native event processing starts after the HOST confirmation transaction.",
+      "The remaining direct connect calls are confined to launch.rs member join and host install/login/start flows, where the same connection intentionally carries the ordered per-launch frames and no nested authority supervisor transaction runs. Dedicated registration is a separate path.",
+      "Cleanup reports host_native_cleared only after the native transaction handle has been released; failed native/backend acknowledgement retains the exact pending scope for retry. No nonce, operation sequence, cursor, or cleanup ownership regression was found.",
+      "Changed runtime lock scopes copy controller/state data before pipe or HTTP I/O. The preflight callback's controller-to-state lock is not paired with an observed state-to-controller nested lock path."
+    ]
+  },
+  "validation": {
+    "execution_receipt": "C:/wksp/ProjectRebound/.tmp/ready-multiplayer-20260913/r10/rust-final/execution-receipt.json",
+    "source_hashes_match_test_execution": true,
+    "rust_library": {
+      "status": "PASS",
+      "passed": 362,
+      "failed": 0,
+      "ignored": 0,
+      "command": "cargo test --locked --lib --features vnt --no-fail-fast"
+    },
+    "tauri": {
+      "status": "PASS",
+      "passed": 9,
+      "failed": 0,
+      "ignored": 0,
+      "command": "cargo test --locked --no-fail-fast"
+    },
+    "windows_named_pipe_fixtures": {
+      "status": "PASS",
+      "passed": 8,
+      "failed": 0,
+      "ignored": 0,
+      "nature": "real Windows named-pipe handles with synthetic protocol frames; no game process"
+    },
+    "format_checks": "PASS"
+  },
+  "native_acceptance": {
+    "Boundary_native_authority": "NOT_RUN",
+    "Boundary_native_playable": "NOT_RUN",
+    "physical_r10_multiplayer": "NOT_RUN",
+    "raw_native_pipe_trace": "NOT_AVAILABLE"
+  },
+  "limits": "Read-only source review. No source/build/launch/Git mutation was performed. The Windows fixture validates single-instance handle behavior and reconnect/error release using synthetic frames; it is not evidence of Boundary native or physical multiplayer success."
+}
