@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "started_at_utc": "2026-09-13T16:07:58.863375+00:00",
+  "finished_at_utc": "2026-09-13T16:10:44.433642+00:00",
+  "status": "PASS_TAURI_BUILD_BYTES_ONLY",
+  "exit_code": 0,
+  "failure_type": null,
+  "command": [
+    "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    "C:\\wksp\\ProjectReboundToolbox-clean-candidate-20260909\\scripts\\build-strict-candidate.ps1",
+    "-PayloadPath",
+    "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r14b\\signed\\Payload.dll",
+    "-ExpectedPayloadSha256",
+    "69f9190444c7bd2199df944aaa6f20b76c51d2e801094bb7748604b8d7e9151a"
+  ],
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r14b\\tauri-build-r14b.log",
+  "log_sha256": "90799ea767c8037222dd4f773eec3cc95a68780fff4c9c54990158b3303e71b7",
+  "toolbox_path": "C:\\wksp\\ProjectReboundToolbox-clean-candidate-20260909",
+  "source_commit_before": "33fec346d55ca85836e26f9447a86c05a8b92eab",
+  "source_clean_before": true,
+  "payload_source_commit": "644bd068f37853b0f29c260f4998abb60a480cc5",
+  "payload_sha256": "69f9190444c7bd2199df944aaa6f20b76c51d2e801094bb7748604b8d7e9151a",
+  "payload_bytes": 2110264,
+  "payload_source_bytes": 2108416,
+  "payload_preparation_status": "PASS_R14B_NATIVE_BUILD_AND_TEST_SIGNATURE",
+  "scope": "r14b strict production Tauri build only; no signing, packaging, deployment, launch, or native multiplayer acceptance",
+  "release_ready": false,
+  "source_commit_after": "33fec346d55ca85836e26f9447a86c05a8b92eab",
+  "source_clean_after": true,
+  "candidate_path": "C:\\wksp\\ProjectReboundToolbox-clean-candidate-20260909\\src-tauri\\target\\release\\rebound_toolbox_tauri.exe",
+  "candidate_sha256": "6dca2e0a9b6e5c6131845619a98d61b6bbf9e948edd8ee8f84cdc864ec90fd0d",
+  "candidate_bytes": 49494016,
+  "candidate_manifest_path": "C:\\wksp\\ProjectReboundToolbox-clean-candidate-20260909\\src-tauri\\target\\release\\strict-candidate.json",
+  "candidate_manifest_sha256": "45e6b7b5aebe98a11f6667b7fe224b891fd245dab5b24475e488ee9f5a9873d4",
+  "distribution_candidate_manifest_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r14b\\strict-candidate.json",
+  "distribution_candidate_manifest_sha256": "45e6b7b5aebe98a11f6667b7fe224b891fd245dab5b24475e488ee9f5a9873d4",
+  "strict_mode": {
+    "custom_protocol": true,
+    "lab_testing": false,
+    "default_product_features": [],
+    "dependency_features": {
+      "rebound_toolbox": [
+        "vnt"
+      ]
+    }
+  }
+}

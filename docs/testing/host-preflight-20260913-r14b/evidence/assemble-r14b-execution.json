@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "started_at_utc": "2026-09-13T16:19:18.675319+00:00",
+  "finished_at_utc": "2026-09-13T16:19:19.237955+00:00",
+  "status": "PASS_EXECUTION",
+  "exit_code": 0,
+  "failure_type": null,
+  "command": [
+    "C:\\Python314\\python.exe",
+    "-B",
+    "-X",
+    "utf8",
+    "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\root\\assemble_final_package_r14b.py"
+  ],
+  "cwd": "C:\\wksp\\ProjectRebound",
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r14b\\assemble-r14b.log",
+  "log_sha256": "0b36553306765e24f5ace084e75564c638c23b0319cf0fd78454e6c2b5a1ce65",
+  "release_ready": false
+}

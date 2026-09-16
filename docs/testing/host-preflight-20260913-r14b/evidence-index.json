@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "release_ready": false,
+  "native_acceptance": "NOT_RUN",
+  "package_status": "PASS_PACKAGE_BYTES_ONLY",
+  "preflight_status": "BLOCKED",
+  "preflight_passed": 44,
+  "preflight_blocked": 1,
+  "files": [
+    {
+      "path": "evidence/assemble-r14b-execution.json",
+      "bytes": 679,
+      "sha256": "f595a85db30b0391690dca124e2c3d78191bca990f032ff1fa6e002e02743364"
+    },
+    {
+      "path": "evidence/build-execution-receipt.json",
+      "bytes": 2694,
+      "sha256": "8052da8507ce3ddc6bbc7e3f097579b0238124ed6e557b5df40cd46de908fdc2"
+    },
+    {
+      "path": "evidence/native-tests-r14b-execution.json",
+      "bytes": 682,
+      "sha256": "d241c73a9d27a8485d5270201035a2cea99bf40fa0c01f3071a575da85ea2a03"
+    },
+    {
+      "path": "evidence/native-tests-r14b.log",
+      "bytes": 3388,
+      "sha256": "6539002c8262a346c3267a98dcc9bcfc9b07c525f3cf4afd795aac5d29604a94"
+    },
+    {
+      "path": "evidence/native-tests-r14b.xml",
+      "bytes": 5887,
+      "sha256": "44ac377ee2a3a32c102cf75a0bcd15fc3d232771f78d43a7414f55f346ddc6d0"
+    },
+    {
+      "path": "evidence/package-build-receipt.json",
+      "bytes": 1008,
+      "sha256": "c7178d4263f806502051223b3e245ae92d1eba0f6dea452c71234f3f172da045"
+    },
+    {
+      "path": "evidence/package-r14b-execution.json",
+      "bytes": 995,
+      "sha256": "4f7650e08f2cba3231d99a1b4995b1cb4fea8d987bd87626d59a8819cbbb42f6"
+    },
+    {
+      "path": "evidence/payload-signature-receipt.json",
+      "bytes": 1253,
+      "sha256": "e173f23043c97df47c37a439c7c053e70251e61feaad9f3e718dbca0029e82e9"
+    },
+    {
+      "path": "evidence/preflight-r14b-execution.json",
+      "bytes": 1066,
+      "sha256": "b6f3f10307c15562fe847fe65bd2f33da4dd1d7bbb0c35bbc95a79e0d67de203"
+    },
+    {
+      "path": "evidence/preflight.json",
+      "bytes": 39276,
+      "sha256": "eacfda813bef91aaaaff71257e804e8547533da49c66f5d024a8203940154593"
+    },
+    {
+      "path": "evidence/SHA256SUMS",
+      "bytes": 119,
+      "sha256": "a0934428b00a19c945f156f6788e1cb0c4e2fb1d1976614fbc3e6b2ca7539a92"
+    },
+    {
+      "path": "evidence/sign-toolbox-r14b-execution.json",
+      "bytes": 1385,
+      "sha256": "93885404f36eaadf77c3f6feff468ae50f39df2edcc3ad137d084df88be44750"
+    },
+    {
+      "path": "evidence/toolbox-signature-receipt.json",
+      "bytes": 1319,
+      "sha256": "7e797918d79f3d5aaeb57231c9b6efef9325c8f6a449be1d54bdfc02c0820f1a"
+    }
+  ]
+}

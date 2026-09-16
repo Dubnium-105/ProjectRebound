@@ -1,0 +1,17 @@
+{
+  "started_at_utc": "2026-09-13T16:06:37.518990+00:00",
+  "finished_at_utc": "2026-09-13T16:06:38.839281+00:00",
+  "command": [
+    "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\ctest.exe",
+    "--test-dir",
+    "C:\\wksp\\ProjectRebound\\build\\native-validation-tests",
+    "-C",
+    "Release",
+    "--output-on-failure",
+    "--output-junit",
+    "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r14b\\native-tests-r14b.xml"
+  ],
+  "exit_code": 0,
+  "log_sha256": "6539002c8262a346c3267a98dcc9bcfc9b07c525f3cf4afd795aac5d29604a94",
+  "release_ready": false
+}

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="26"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname=""
+	time="1"
+	timestamp="2026-09-14T00:06:37"
+	>
+	<testcase name="command_protocol_tests" classname="command_protocol_tests" time="0.0327412" status="run">
+		<properties/>
+		<system-out>CommandProtocol tests passed
+</system-out>
+	</testcase>
+	<testcase name="strict_roster_policy_tests" classname="strict_roster_policy_tests" time="0.032792" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="ed25519_verifier_tests" classname="ed25519_verifier_tests" time="0.03591" status="run">
+		<properties/>
+		<system-out>Ed25519 verifier tests passed
+</system-out>
+	</testcase>
+	<testcase name="strict_roster_steam_auth_tests" classname="strict_roster_steam_auth_tests" time="0.0283926" status="run">
+		<properties/>
+		<system-out>PASS strict roster Steam auth tests failures=0
+</system-out>
+	</testcase>
+	<testcase name="command_line_policy_tests" classname="command_line_policy_tests" time="0.0283749" status="run">
+		<properties/>
+		<system-out>command line policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="strict_authority_start_dispatch_tests" classname="strict_authority_start_dispatch_tests" time="0.0308711" status="run">
+		<properties/>
+		<system-out>strict authority start dispatch tests passed
+</system-out>
+	</testcase>
+	<testcase name="strict_authority_lease_tests" classname="strict_authority_lease_tests" time="0.0316982" status="run">
+		<properties/>
+		<system-out>Owned world fixture: distinct_addresses=1 same_result=1 other_result=0
+strict authority lease tests passed
+</system-out>
+	</testcase>
+	<testcase name="strict_roster_cleanup_receipt_tests" classname="strict_roster_cleanup_receipt_tests" time="0.0273608" status="run">
+		<properties/>
+		<system-out>Strict roster cleanup receipt tests passed
+</system-out>
+	</testcase>
+	<testcase name="native_login_grant_policy_tests" classname="native_login_grant_policy_tests" time="0.0288353" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="native_match_scope_tests" classname="native_match_scope_tests" time="0.0243064" status="run">
+		<properties/>
+		<system-out>NativeMatchScopeTests: PASS
+</system-out>
+	</testcase>
+	<testcase name="listen_result_policy_tests" classname="listen_result_policy_tests" time="0.0305427" status="run">
+		<properties/>
+		<system-out>listen result policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="host_readiness_policy_tests" classname="host_readiness_policy_tests" time="0.0311571" status="run">
+		<properties/>
+		<system-out>host readiness policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="server_hook_policy_tests" classname="server_hook_policy_tests" time="0.0248161" status="run">
+		<properties/>
+		<system-out>server hook policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="local_qos_discovery_policy_tests" classname="local_qos_discovery_policy_tests" time="0.0284202" status="run">
+		<properties/>
+		<system-out>local QoS discovery policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="unreal_container_tests" classname="unreal_container_tests" time="0.0260943" status="run">
+		<properties/>
+		<system-out>All Unreal container tests passed.
+</system-out>
+	</testcase>
+	<testcase name="loadout_state_policy_tests" classname="loadout_state_policy_tests" time="0.0263425" status="run">
+		<properties/>
+		<system-out>loadout state policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="respawn_state_policy_tests" classname="respawn_state_policy_tests" time="0.0269575" status="run">
+		<properties/>
+		<system-out>respawn state policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="managed_possession_sync_policy_tests" classname="managed_possession_sync_policy_tests" time="0.0277115" status="run">
+		<properties/>
+		<system-out>managed possession sync policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="seamless_intro_camera_policy_tests" classname="seamless_intro_camera_policy_tests" time="0.0259417" status="run">
+		<properties/>
+		<system-out>seamless intro camera policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="dedicated_multi_match_policy_tests" classname="dedicated_multi_match_policy_tests" time="0.0284517" status="run">
+		<properties/>
+		<system-out>DedicatedMultiMatchPolicyTests passed
+</system-out>
+	</testcase>
+	<testcase name="join_ui_sync_policy_tests" classname="join_ui_sync_policy_tests" time="0.027902" status="run">
+		<properties/>
+		<system-out>join UI sync policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="replication_world_gate_policy_tests" classname="replication_world_gate_policy_tests" time="0.0318887" status="run">
+		<properties/>
+		<system-out>replication world gate policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="direct_match_ui_cleanup_policy_tests" classname="direct_match_ui_cleanup_policy_tests" time="0.0309736" status="run">
+		<properties/>
+		<system-out>Direct-match UI cleanup policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="archive_completion_policy_tests" classname="archive_completion_policy_tests" time="0.0307803" status="run">
+		<properties/>
+		<system-out>archive completion policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="weapon_archive_policy_tests" classname="weapon_archive_policy_tests" time="0.0285286" status="run">
+		<properties/>
+		<system-out>weapon archive policy tests passed
+</system-out>
+	</testcase>
+	<testcase name="command_framework_tests" classname="command_framework_tests" time="0.387015" status="run">
+		<properties/>
+		<system-out>CommandFramework tests passed
+</system-out>
+	</testcase>
+</testsuite>

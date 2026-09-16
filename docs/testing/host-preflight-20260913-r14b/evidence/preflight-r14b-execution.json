@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "started_at_utc": "2026-09-13T16:19:21.001733+00:00",
+  "finished_at_utc": "2026-09-13T16:19:23.716524+00:00",
+  "status": "FAILED_EXECUTION",
+  "exit_code": 2,
+  "failure_type": null,
+  "command": [
+    "C:\\Users\\23587\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260913-r14b\\rebound-hardware-test-20260913-r14b-windows-x64\\Check-ThisMachine.ps1",
+    "-GameWin64",
+    "C:\\Steam\\steamapps\\common\\Boundary\\ProjectBoundary\\Binaries\\Win64",
+    "-EvidenceDirectory",
+    "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r14b\\preflight"
+  ],
+  "cwd": "C:\\wksp\\ProjectRebound",
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r14b\\preflight-r14b.log",
+  "log_sha256": "a7b4848fb70d13f2c8dad293fce9783e6e118d10b3a5f11308dab98238cfebc3",
+  "release_ready": false
+}

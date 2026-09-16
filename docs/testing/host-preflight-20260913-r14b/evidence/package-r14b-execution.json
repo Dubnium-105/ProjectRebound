@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "started_at_utc": "2026-09-13T16:19:19.241638+00:00",
+  "finished_at_utc": "2026-09-13T16:19:20.979743+00:00",
+  "status": "PASS_EXECUTION",
+  "exit_code": 0,
+  "failure_type": null,
+  "command": [
+    "C:\\Python314\\python.exe",
+    "-B",
+    "-X",
+    "utf8",
+    "C:\\wksp\\ProjectRebound\\Tools\\Distribution\\build_test_packages.py",
+    "--windows-stage",
+    "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r14b\\windows-staging",
+    "--metadata",
+    "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r14b\\public-metadata.json",
+    "--output",
+    "C:\\wksp\\ProjectRebound\\artifacts\\hardware-test-20260913-r14b"
+  ],
+  "cwd": "C:\\wksp\\ProjectRebound",
+  "log_path": "C:\\wksp\\ProjectRebound\\.tmp\\ready-multiplayer-20260913\\distribution-r14b\\package-r14b.log",
+  "log_sha256": "8d0cf765e400606bb42ceeac0adcd21f8a59ecf2209391468f4d51f331921dbe",
+  "release_ready": false
+}
