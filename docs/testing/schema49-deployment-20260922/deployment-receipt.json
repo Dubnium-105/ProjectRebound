@@ -1,0 +1,215 @@
+{
+  "recorded_at": "2026-09-21T16:52:30.937297+00:00",
+  "deployment_status": "BLOCKED_PUBLIC_INGRESS_ADMIN_ACCESS",
+  "deployment_dispatched": false,
+  "candidate_commit": "5fb54ce2832e152b5ea4d84c5656f2ad8bb11f37",
+  "candidate_branch": "codex/schema49-deploy-20260921",
+  "target_schema": 49,
+  "ci": {
+    "run_id": 35627019586,
+    "url": "https://github.com/Dubnium-105/ProjectRebound/actions/runs/35627019586",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Go backend and PostgreSQL",
+        "conclusion": "success"
+      },
+      {
+        "name": "V1.1 disposable control plane and two-Relay integration",
+        "conclusion": "success"
+      },
+      {
+        "name": "C++ command protocol",
+        "conclusion": "success"
+      },
+      {
+        "name": "Independent administrator web",
+        "conclusion": "success"
+      },
+      {
+        "name": "Windows named-pipe integration",
+        "conclusion": "success"
+      },
+      {
+        "name": "Deployment and workflow configuration",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build and package meta-server image",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build and package edge-relay image",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build and package load-bot image",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build and package admin-web image",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build and package control-plane image",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "images_ready": true,
+  "build_records": [
+    {
+      "git_commit": "5fb54ce2832e152b5ea4d84c5656f2ad8bb11f37",
+      "build_time": "2026-09-21T16:50:47Z",
+      "go_version": "go1.26.6",
+      "image": "ghcr.io/dubnium-105/projectrebound-admin-web",
+      "image_digest": "sha256:22097b317cc3ef5d5646cee07a6ed54197a2a6eedea90dd972c1de997534365f",
+      "relay_protocol_version": "2",
+      "meta_protocol_version": "1",
+      "database_schema_version": "49",
+      "definitions_sha256": "20393e344e14935535c0eac6815ad82ca051f33caf199281ace4d4bb58391c49",
+      "definitions_upstream_commit": "d68e717267abf14e32d4e39618f9b7680ed93046"
+    },
+    {
+      "git_commit": "5fb54ce2832e152b5ea4d84c5656f2ad8bb11f37",
+      "build_time": "2026-09-21T16:49:35Z",
+      "go_version": "go1.26.6",
+      "image": "ghcr.io/dubnium-105/projectrebound-control-plane",
+      "image_digest": "sha256:7e8f36c013fa31900a3620c8b9069f120f934d679a0883eb6f377c4d36eca6f1",
+      "relay_protocol_version": "2",
+      "meta_protocol_version": "1",
+      "database_schema_version": "49",
+      "definitions_sha256": "20393e344e14935535c0eac6815ad82ca051f33caf199281ace4d4bb58391c49",
+      "definitions_upstream_commit": "d68e717267abf14e32d4e39618f9b7680ed93046"
+    },
+    {
+      "git_commit": "5fb54ce2832e152b5ea4d84c5656f2ad8bb11f37",
+      "build_time": "2026-09-21T16:48:43Z",
+      "go_version": "go1.26.6",
+      "image": "ghcr.io/dubnium-105/projectrebound-edge-relay",
+      "image_digest": "sha256:4bb10d5d9e9e20d68c540771cac22a9ff9854123fb1cd06d2ebf0a75058adcd0",
+      "relay_protocol_version": "2",
+      "meta_protocol_version": "1",
+      "database_schema_version": "49",
+      "definitions_sha256": "20393e344e14935535c0eac6815ad82ca051f33caf199281ace4d4bb58391c49",
+      "definitions_upstream_commit": "d68e717267abf14e32d4e39618f9b7680ed93046"
+    },
+    {
+      "git_commit": "5fb54ce2832e152b5ea4d84c5656f2ad8bb11f37",
+      "build_time": "2026-09-21T16:47:48Z",
+      "go_version": "go1.26.6",
+      "image": "ghcr.io/dubnium-105/projectrebound-load-bot",
+      "image_digest": "sha256:505e10a5c9f008b8232b7c44f99a003ecc71b38b0c7186d3f1f9fdfe39205d69",
+      "relay_protocol_version": "2",
+      "meta_protocol_version": "1",
+      "database_schema_version": "49",
+      "definitions_sha256": "20393e344e14935535c0eac6815ad82ca051f33caf199281ace4d4bb58391c49",
+      "definitions_upstream_commit": "d68e717267abf14e32d4e39618f9b7680ed93046"
+    },
+    {
+      "git_commit": "5fb54ce2832e152b5ea4d84c5656f2ad8bb11f37",
+      "build_time": "2026-09-21T16:48:29Z",
+      "go_version": "go1.26.6",
+      "image": "ghcr.io/dubnium-105/projectrebound-meta-server",
+      "image_digest": "sha256:0abb346ca70f5bcc4374d5c582b13cd13f1e31f9a6827e538c0b9d5ee712b33f",
+      "relay_protocol_version": "2",
+      "meta_protocol_version": "1",
+      "database_schema_version": "49",
+      "definitions_sha256": "20393e344e14935535c0eac6815ad82ca051f33caf199281ace4d4bb58391c49",
+      "definitions_upstream_commit": "d68e717267abf14e32d4e39618f9b7680ed93046"
+    }
+  ],
+  "production_preflight": {
+    "observed_at": "2026-09-21T16:50:58.259870+00:00",
+    "schema": "48|48",
+    "attempt_states": "ABORTED|14",
+    "cleanup_states": "CLEARED|13\nPENDING|1",
+    "active_connections": "0",
+    "relay_states": "CLOSED|4",
+    "env_sha256": "26e48f4c706f59047ba62def8d09cb1404e4f4d3fa0b0ed0a0f8a3e486673414",
+    "internal_readiness": {
+      "control": 200,
+      "meta": 200
+    },
+    "containers": [
+      {
+        "name": "project-rebound-control-plane-control-plane-1",
+        "image": "ghcr.io/dubnium-105/projectrebound-control-plane:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "image_id": "sha256:bc98ac6d82427ee352237314ff13989fae776fd0f8dfceda18c2658fe55a2bca",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "name": "project-rebound-control-plane-meta-server-1",
+        "image": "ghcr.io/dubnium-105/projectrebound-meta-server:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "image_id": "sha256:6f5e92a55207c0fea3eb9e01f08856d436d80aecd1bfb8b2f2305ce40ca37026",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "name": "project-rebound-control-plane-postgres-1",
+        "image": "postgres:17-alpine",
+        "image_id": "sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+        "running": true,
+        "health": "healthy"
+      },
+      {
+        "name": "project-rebound-edge-relay-edge-relay-1",
+        "image": "ghcr.io/dubnium-105/projectrebound-edge-relay:sha-8069d5e1126b8a585610b232e721aee45c57ee88",
+        "image_id": "sha256:b82049df5df6c982f747e1ec409812d6af143b298ca8124299f0ea258524370c",
+        "running": true,
+        "health": null
+      }
+    ]
+  },
+  "pre_migration_backup": {
+    "path": "/opt/projectrebound-deploy/backups/projectrebound-20260921T160028Z.dump",
+    "bytes": 11017457,
+    "mode": "0o600",
+    "sha256": "263bbd5006d731f1c21591e9045933642f069795cd49169af108878e24e1d47b"
+  },
+  "public_ingress": {
+    "primary_haproxy": "failed; TCP 80/443 not listening",
+    "public_probes": {
+      "api": {
+        "status": 403
+      },
+      "cnapi": {
+        "error_type": "URLError",
+        "reason": "<urlopen error [Errno 111] Connection refused>"
+      },
+      "meta": {
+        "error_type": "URLError",
+        "reason": "<urlopen error [Errno 111] Connection refused>"
+      }
+    },
+    "administrative_access": "Deploy account requires a sudo password; default root SSH public-key authentication rejected.",
+    "required_action": "Restore the existing HAProxy service with an authorized administrator, then verify public ingress and relay control connectivity before dispatch."
+  },
+  "historical_cleanup": {
+    "attempt_count": 1,
+    "hosting_kind": "P2P",
+    "state": "ABORTED",
+    "lobby_state": "ABORTED",
+    "failure_code": "INITIAL_TEAM_EMPTY",
+    "created_at": "2026-09-13T16:30:44Z",
+    "completed_and_cleanup_requested_at": "2026-09-13T16:33:13Z",
+    "cleanup_lease_expired_at": "2026-09-13T16:35:13Z",
+    "native_cleared_at": null,
+    "scope_present": true,
+    "roster_revision": 2,
+    "route_generation": 1,
+    "affected_player_count": 2,
+    "next_match_gate": "MATCH_ATTEMPT_CLEANUP_PENDING",
+    "action": "Preserve pending state; absence of active connections is not proof of native cleanup."
+  },
+  "additional_local_database_validation": {
+    "postgresql_major": 14,
+    "package": "internal/connection",
+    "result": "PASS",
+    "skipped_tests": 0
+  },
+  "rollback_limit": "A schema-48 image alone cannot run after migration 49; use a forward fix or an explicitly planned database restore.",
+  "native_full_match_acceptance": "NOT_RUN",
+  "release_ready": false
+}
