@@ -41,10 +41,10 @@ func TestRepositoryCleanupRetriesTerminalConnectionsWithLiveRelayAllocation(t *t
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO p2p_rooms (
 			id, host_player_id, host_token_hash, display_name, region, mode, version,
-			max_players, player_count, state, last_heartbeat_at, created_at, updated_at
+			max_players, player_count, state, last_heartbeat_at, created_at, updated_at, expires_at
 		) VALUES ($1, $2, $3, 'repository cleanup', 'test', 'TDM', 'test', 2, 2,
-		          'LOBBY', $4, $4, $4)
-	`, roomID, hostID, []byte("cleanup-host-token"), now); err != nil {
+		          'LOBBY', $4, $4, $4, $5)
+	`, roomID, hostID, []byte(roomID), now, now.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `
