@@ -1,0 +1,61 @@
+{
+  "recorded_at": "2026-09-21T15:45:01.811096+00:00",
+  "package_id": "ProjectRebound-r14b-flowfix-20260921",
+  "source_commits": {
+    "ProjectRebound": "101e15902a2a0bcfb6ae76e5c096e00ec78bba21",
+    "Toolbox": "8a641dc77d8e377abdbf139ed7c210960db2f149"
+  },
+  "backend_schema_required": 49,
+  "match_lifecycle_protocol": "match-lifecycle-v1",
+  "ipc_protocol": "strict-roster-v2",
+  "release_ready": false,
+  "backend_deployment": "NOT_RUN",
+  "native_four_mode_three_account_acceptance": "NOT_RUN",
+  "artifacts": [
+    {
+      "sha256": "4b9cb706743f5d4db0da0c2bdff77a8223b47d77de148db773c255671a9a9389",
+      "bytes": 23643317,
+      "files": 23,
+      "archive_byte_check": "PASS",
+      "path": "artifacts/hardware-test-20260921-r14b-flowfix/ProjectRebound-r14b-flowfix-20260921-windows-x64.zip"
+    },
+    {
+      "sha256": "996496a945fca9d86f2c2d7f0737933160b68dc2a8504e03b42e96b8cbbe4959",
+      "bytes": 47763969,
+      "files": 57,
+      "archive_byte_check": "PASS",
+      "path": "artifacts/hardware-test-20260921-r14b-flowfix/ProjectRebound-r14b-flowfix-20260921-server-linux-amd64.tar.gz"
+    }
+  ],
+  "binary_pins": {
+    "windows-x64": [
+      {
+        "path": "Payload.dll",
+        "bytes": 2143032,
+        "sha256": "e73c84f215c67e1cdf6da611157a99caada9c4e1fd2d7bd4f7abb69fdd58bcd0"
+      },
+      {
+        "path": "rebound_toolbox_tauri.exe",
+        "bytes": 49742648,
+        "sha256": "af29cb9cce666ef3ec41ecdef1ee461e9777254d56fe390145450e3dcbb2b370"
+      }
+    ],
+    "server-linux-amd64": [
+      {
+        "path": "bin/control-plane",
+        "bytes": 51425660,
+        "sha256": "d0b2137574bf2eb1ccca5c93ffe9dd510b8187527e7bc793674befb2e802a8af"
+      },
+      {
+        "path": "bin/meta-server",
+        "bytes": 38777878,
+        "sha256": "381c187bdaf173cf9b0ed7fd96928f483d49acc01ed6d35bd3261da8f96ba21e"
+      },
+      {
+        "path": "bin/edge-relay",
+        "bytes": 19317369,
+        "sha256": "396a7df80ba200746ecede1dcbe41a37d1b8804f58756ee4c2275e6bf64dbd55"
+      }
+    ]
+  }
+}
