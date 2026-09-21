@@ -515,6 +515,7 @@ func buildHandler(
 		router.Post("/v1/match-attempts/{attempt_id}/host/connected", matchLobbyHandler.P2PConnected)
 		router.Post("/v1/match-attempts/{attempt_id}/host/disconnected", matchLobbyHandler.P2PDisconnected)
 		router.Post("/v1/match-attempts/{attempt_id}/host/heartbeat", matchLobbyHandler.P2PAuthorityHeartbeat)
+		router.Post("/v1/match-attempts/{attempt_id}/host/lifecycle", matchLobbyHandler.P2PLifecycle)
 		router.Post("/v1/match-attempts/{attempt_id}/host/complete", matchLobbyHandler.P2PComplete)
 		router.Post("/v1/match-attempts/{attempt_id}/host/native-cleared", matchLobbyHandler.P2PNativeCleared)
 	})
@@ -538,6 +539,8 @@ func buildHandler(
 		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/disconnected", matchLobbyHandler.Disconnected)
 	router.With(gameServerHandler.RequireCredentialProof).
 		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/heartbeat", matchLobbyHandler.AuthorityHeartbeat)
+	router.With(gameServerHandler.RequireCredentialProof).
+		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/lifecycle", matchLobbyHandler.DedicatedLifecycle)
 	router.With(gameServerHandler.RequireCredentialProof).
 		Post("/v1/game-servers/{server_id}/match-attempts/{attempt_id}/complete", matchLobbyHandler.Complete)
 	router.With(gameServerHandler.RequireCredentialProof).

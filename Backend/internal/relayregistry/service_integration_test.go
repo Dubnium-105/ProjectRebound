@@ -251,21 +251,41 @@ func TestRelayRegistryLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 	publisher := &recordedControlPublisher{messages: make(map[string][]ControlMessage)}
 	service.SetControlPublisher(publisher)
-	if err := service.RevokeRelay(ctx, connectionIDs[0], "CONNECTION_CLOSED"); err != nil {
-		t.Fatal(err)
+	if err := service.RevokeRelay(ctx, connectionIDs[0], "CONNECTION_CLOSED"); relayErrorCode(err) != "RELAY_ALLOCATION_REVOKE_PENDING" {
+		t.Fatalf("initial revoke error = %v", err)
 	}
 	var allocationState string
 	if err := pool.QueryRow(ctx, "SELECT state FROM relay_allocations WHERE id = $1", first.AllocationID).Scan(&allocationState); err != nil || allocationState != "CLOSED" {
 		t.Fatalf("revoked allocation state = %q, %v", allocationState, err)
 	}
+	var revokePending bool
+	if err := pool.QueryRow(ctx, "SELECT revoke_requested_at IS NOT NULL FROM relay_allocations WHERE id = $1", first.AllocationID).Scan(&revokePending); err != nil || !revokePending {
+		t.Fatalf("revoked allocation pending marker = %v, %v", revokePending, err)
+	}
 	if messages := publisher.messages[enrolled.Node.ID]; len(messages) != 1 || messages[0].Type != "RevokeAllocation" {
 		t.Fatalf("revoke messages = %#v", messages)
 	}
-	if err := service.RevokeRelay(ctx, connectionIDs[0], "RETRY"); err != nil {
-		t.Fatal(err)
+	if err := service.RevokeRelay(ctx, connectionIDs[0], "RETRY"); relayErrorCode(err) != "RELAY_ALLOCATION_REVOKE_PENDING" {
+		t.Fatalf("retry revoke error = %v", err)
 	}
-	if messages := publisher.messages[enrolled.Node.ID]; len(messages) != 1 {
-		t.Fatalf("idempotent revoke published duplicate messages: %#v", messages)
+	if messages := publisher.messages[enrolled.Node.ID]; len(messages) != 2 {
+		t.Fatalf("pending revoke did not publish a retry: %#v", messages)
+	}
+	if err := service.AllocationClosed(ctx, enrolled.Node.ID, first.AllocationID); err != nil {
+		t.Fatalf("allocation close acknowledgement: %v", err)
+	}
+	if err := pool.QueryRow(ctx, "SELECT revoke_requested_at IS NOT NULL FROM relay_allocations WHERE id = $1", first.AllocationID).Scan(&revokePending); err != nil || revokePending {
+		t.Fatalf("acknowledged allocation pending marker = %v, %v", revokePending, err)
+	}
+	if err := service.RevokeRelay(ctx, connectionIDs[0], "AFTER_ACK"); err != nil {
+		t.Fatalf("post-ack revoke: %v", err)
+	}
+	if messages := publisher.messages[enrolled.Node.ID]; len(messages) != 2 {
+		t.Fatalf("acknowledged revoke published another message: %#v", messages)
+	}
+	service.SetControlPublisher(nil)
+	if err := service.RevokeRelay(ctx, "connection_without_relay_allocation", "NO_ALLOCATION"); err != nil {
+		t.Fatalf("no-allocation revoke: %v", err)
 	}
 }
 

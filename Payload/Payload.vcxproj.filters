@@ -84,6 +84,9 @@
     <ClInclude Include="ServerLogic\DedicatedMultiMatchPolicy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ServerLogic\MatchLifecycle.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Admission\Ed25519Verifier.cpp">

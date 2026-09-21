@@ -481,9 +481,48 @@ func TestStrictRosterDedicatedLifecycleAgainstPostgreSQL(t *testing.T) {
 		t.Fatalf("reconnected Dedicated member advertised reconnect capability: %+v, %v", reconnectedView.Local, err)
 	}
 	assertDedicatedProjectionMatchesAttempt(t, ctx, pool, attemptID)
-	terminal, err := service.Complete(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, true, "")
+	// Start returns the provisioning snapshot, before the Dedicated authority
+	// publishes its native world.  Use the post-admission snapshot so the
+	// lifecycle receipt carries the current immutable scope.
+	lifecycleScope, err := service.Get(ctx, active.LobbyID, owner.PlayerID)
+	if err != nil || lifecycleScope.Attempt == nil {
+		t.Fatalf("read Dedicated lifecycle scope: %+v, %v", lifecycleScope, err)
+	}
+	resultInput := LifecycleInput{
+		Phase: LifecycleResultConfirmed, WorldInstanceID: lifecycleScope.Attempt.WorldInstanceID,
+		RosterRevision: lifecycleScope.Attempt.RosterRevision, RouteGeneration: lifecycleScope.Attempt.RouteGeneration,
+		MatchGeneration: lifecycleScope.Attempt.MatchGeneration, EventSeq: 1,
+	}
+	ending, err := service.DedicatedLifecycle(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, resultInput)
+	if err != nil || ending.Attempt == nil || ending.Attempt.State != AttemptEnding {
+		t.Fatalf("result confirmation = %+v, %v", ending, err)
+	}
+	if err := service.AuthorityHeartbeat(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID); err != nil {
+		t.Fatalf("ENDING Dedicated heartbeat was rejected: %v", err)
+	}
+	if terminal, err := service.Complete(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, false, "PROCESS_LOST"); err != nil || terminal.State != StateCompleted {
+		t.Fatalf("result-confirmed process-loss completion = %+v, %v", terminal, err)
+	}
+	returnInput := LifecycleInput{
+		Phase: LifecycleReturnReady, WorldInstanceID: ending.Attempt.WorldInstanceID,
+		RosterRevision: ending.Attempt.RosterRevision, RouteGeneration: ending.Attempt.RouteGeneration,
+		MatchGeneration: ending.Attempt.MatchGeneration, EventSeq: 2,
+	}
+	terminal, err := service.DedicatedLifecycle(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, returnInput)
 	if err != nil || terminal.State != StateCompleted {
 		t.Fatalf("complete Dedicated attempt: %+v, %v", terminal, err)
+	}
+	if terminal.Attempt == nil || terminal.Attempt.CompletionWarning != "PROCESS_LOST" {
+		t.Fatalf("process-loss warning was not retained: %+v", terminal.Attempt)
+	}
+	if replayed, err := service.DedicatedLifecycle(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, resultInput); err != nil || replayed.State != StateCompleted {
+		t.Fatalf("delayed Dedicated RESULT_CONFIRMED replay was not idempotent: %+v, %v", replayed, err)
+	}
+	if replayed, err := service.DedicatedLifecycle(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, returnInput); err != nil || replayed.State != StateCompleted {
+		t.Fatalf("delayed Dedicated RETURN_READY replay was not idempotent: %+v, %v", replayed, err)
+	}
+	if late, err := service.Complete(ctx, serverID, allocationClaims.AuthoritySessionID, attemptID, false, "PROCESS_LOST_LATE"); err != nil || late.State != StateCompleted || late.Attempt == nil || late.Attempt.CompletionWarning != "PROCESS_LOST" {
+		t.Fatalf("late process-loss report changed the confirmed result: %+v, %v", late, err)
 	}
 	// Closing an attempt without a BattleLog report must not delete or
 	// regenerate the authoritative frozen roster projection.

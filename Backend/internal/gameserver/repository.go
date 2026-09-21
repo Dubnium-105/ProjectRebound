@@ -266,7 +266,7 @@ func (r *Repository) ActiveMatchAssignment(ctx context.Context, tx pgx.Tx, serve
 		       COALESCE(world_instance_id, ''), roster_revision, route_generation
 		FROM match_attempts
 		WHERE authority_id = $1 AND hosting_kind = 'DEDICATED'
-		  AND state IN ('FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING')
+		  AND state IN ('FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING', 'ENDING')
 		ORDER BY created_at DESC, id DESC
 		LIMIT 1
 	`, serverID).Scan(

@@ -509,7 +509,27 @@ func (r *Runtime) setLoadStateLocked(state LoadState) {
 	r.metrics.setLoadState(state)
 }
 
-func (r *Runtime) RevokeAllocation(allocationID string) { r.closeAllocation(allocationID, true) }
+// RevokeAllocation is called only for an authenticated control-plane revoke.
+// The registry keeps a revoke request pending until it receives AllocationClosed,
+// so an allocation that was never opened (or was already swept) must still emit
+// the acknowledgement.  Replaying the command is safe and deliberately emits
+// another acknowledgement to recover a lost control-stream ACK.
+func (r *Runtime) RevokeAllocation(allocationID string) {
+	if allocationID == "" {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if allocation := r.allocations[allocationID]; allocation != nil {
+		wasOpened := allocation.opened
+		r.closeAllocationLocked(allocationID, true)
+		if !wasOpened {
+			r.emit(RuntimeEvent{Type: "AllocationClosed", AllocationID: allocationID})
+		}
+		return
+	}
+	r.emit(RuntimeEvent{Type: "AllocationClosed", AllocationID: allocationID})
+}
 
 func (r *Runtime) Sweep() int {
 	now := r.now().UTC()

@@ -375,6 +375,55 @@ func TestRuntimeDrainsExistingAllocationAtDeadline(t *testing.T) {
 	}
 }
 
+func TestRuntimeExplicitRevokeAcknowledgesMissingAndUnopenedAllocations(t *testing.T) {
+	now := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
+	signer := newTestSigner(t, "relay-key-a")
+	runtime := testRuntime(t, signer, now, func(cfg *Config) {})
+	hostAddress := netip.MustParseAddrPort("198.51.100.10:50000")
+	peerAddress := netip.MustParseAddrPort("198.51.100.11:50001")
+	hostToken := signer.sign(t, testClaims(now, "revoke-unopened-host", "HOST", "relay_test", "alloc_unopened"))
+	bindForTest(t, runtime, hostToken, hostAddress)
+
+	runtime.RevokeAllocation("alloc_unopened")
+	if event := <-runtime.Events(); event.Type != "AllocationClosed" || event.AllocationID != "alloc_unopened" {
+		t.Fatalf("unopened revoke event = %#v", event)
+	}
+	select {
+	case event := <-runtime.Events():
+		t.Fatalf("unopened revoke emitted a duplicate: %#v", event)
+	default:
+	}
+
+	// The first close may have been lost on the control stream.  A replay after
+	// the runtime has already removed the allocation must still be acknowledged.
+	runtime.RevokeAllocation("alloc_unopened")
+	if event := <-runtime.Events(); event.Type != "AllocationClosed" || event.AllocationID != "alloc_unopened" {
+		t.Fatalf("missing allocation replay event = %#v", event)
+	}
+	runtime.RevokeAllocation("")
+	select {
+	case event := <-runtime.Events():
+		t.Fatalf("empty revoke emitted an event: %#v", event)
+	default:
+	}
+
+	openedHostToken := signer.sign(t, testClaims(now, "revoke-opened-host", "HOST", "relay_test", "alloc_opened"))
+	openedPeerToken := signer.sign(t, testClaims(now, "revoke-opened-peer", "PEER", "relay_test", "alloc_opened"))
+	bindForTest(t, runtime, openedHostToken, hostAddress)
+	bindForTest(t, runtime, openedPeerToken, peerAddress)
+	if event := <-runtime.Events(); event.Type != "AllocationOpened" || event.AllocationID != "alloc_opened" {
+		t.Fatalf("opened allocation event = %#v", event)
+	}
+	runtime.RevokeAllocation("alloc_opened")
+	if event := <-runtime.Events(); event.Type != "AllocationClosed" || event.AllocationID != "alloc_opened" {
+		t.Fatalf("opened revoke event = %#v", event)
+	}
+	runtime.RevokeAllocation("alloc_opened")
+	if event := <-runtime.Events(); event.Type != "AllocationClosed" || event.AllocationID != "alloc_opened" {
+		t.Fatalf("opened allocation replay event = %#v", event)
+	}
+}
+
 func TestRuntimeOverloadStateRejectsOnlyNewAllocations(t *testing.T) {
 	now := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
 	signer := newTestSigner(t, "relay-key-a")

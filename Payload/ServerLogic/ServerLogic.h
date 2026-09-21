@@ -2,6 +2,7 @@
 #include <atomic>
 #include <vector>
 #include <cstdint>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include "../SDK.hpp"
@@ -56,6 +57,27 @@ std::uint64_t GetServerMatchGeneration();
 void BeginGracefulDedicatedExit(
     SDK::APBGameMode* gameMode,
     const char* reason);
+
+// Match lifecycle receipts are emitted only from the authoritative native
+// result/return path.  The bridge functions below contain no pipe or disk I/O;
+// they hand a scoped event to the lock-only native outbox.
+void MatchLifecycleCaptureResultWorld(SDK::APBGameMode* gameMode);
+void MatchLifecycleOnResultFrozen(SDK::APBGameMode* gameMode);
+void MatchLifecycleOnResultConfirmed(SDK::APBGameMode* gameMode);
+void MatchLifecycleArmReturnToMenu(SDK::APBGameMode* gameMode);
+void MatchLifecycleReturnToMenuNotified(SDK::APBGameMode* gameMode);
+void MatchLifecycleOnNetworkFlush(
+    SDK::UWorld* world,
+    SDK::UNetDriver* netDriver);
+float MatchLifecycleFinalCleanupWait(
+    SDK::APBGameMode* gameMode,
+    float requestedSeconds);
+void MatchLifecycleCancelProductionAllocationScope(
+    const std::string& attemptId,
+    const std::string& authoritySessionId,
+    const std::string& worldInstanceId,
+    std::int64_t rosterRevision,
+    int routeGeneration);
 
 // Server startup
 // Online authority startup invokes these phases on successive engine ticks.

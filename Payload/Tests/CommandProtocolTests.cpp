@@ -175,6 +175,7 @@ namespace
                 {"ready", false},
                 {"code", "native_client_grant_injection_unverified"},
                 {"protocol_version", "strict-roster-v2"},
+                {"match_lifecycle_version", "match-lifecycle-v1"},
                 {"native_authority_path_ready", true},
                 {"native_client_grant_injection_ready", false},
                 {"strict_online_ready", false},
@@ -246,6 +247,28 @@ namespace
                         {"state", "CONNECTED"}
                     }
                 })}
+            });
+        nlohmann::json lifecycleResult = scope;
+        lifecycleResult["match_generation"] = 1;
+        lifecycleResult["event_seq"] = 1;
+        lifecycleResult["phase"] = "RESULT_CONFIRMED";
+        nlohmann::json lifecycleReturn = scope;
+        lifecycleReturn["match_generation"] = 1;
+        lifecycleReturn["event_seq"] = 2;
+        lifecycleReturn["phase"] = "RETURN_READY";
+        responses.emplace_back(
+            "match_lifecycle_events_ack",
+            nlohmann::json{
+                {"request_id", "fixture-lifecycle-events"},
+                {"protocol_version", "match-lifecycle-v1"},
+                {"events", nlohmann::json::array({
+                    std::move(lifecycleResult), std::move(lifecycleReturn)})}
+            });
+        responses.emplace_back(
+            "ack_match_lifecycle_ack",
+            nlohmann::json{
+                {"request_id", "fixture-lifecycle-ack"},
+                {"status", "ok"}
             });
         responses.emplace_back(
             "confirm_match_admission_ack",

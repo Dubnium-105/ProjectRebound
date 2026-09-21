@@ -170,6 +170,7 @@
     <ClInclude Include="ClientLogic\LocalQosDiscoveryPolicy.h" />
     <ClInclude Include="ServerLogic\DedicatedMultiMatch.h" />
     <ClInclude Include="ServerLogic\DedicatedMultiMatchPolicy.h" />
+    <ClInclude Include="ServerLogic\MatchLifecycle.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Admission\Ed25519Verifier.cpp" />

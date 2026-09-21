@@ -302,6 +302,10 @@ void BeginGracefulDedicatedExit(APBGameMode* gameMode, const char* reason)
     const auto notifyAllClientsReturnToMainMenu =
         reinterpret_cast<NotifyAllClientsReturnToMainMenuFn>(BaseAddress + 0x1633990);
     notifyAllClientsReturnToMainMenu(gameMode);
+    // This marks completion of the native notification call only.  The
+    // lifecycle bridge emits RETURN_READY after the next completed TickFlush,
+    // so this call cannot be mistaken for transport delivery or cleanup.
+    MatchLifecycleReturnToMenuNotified(gameMode);
 
     constexpr uintptr_t WaitingToCleanUpOffset = 0x404;
     constexpr uintptr_t FinalCleanupStartedOffset = 0x4C4;

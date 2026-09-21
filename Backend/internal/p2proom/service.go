@@ -690,6 +690,20 @@ func (s *Service) start(ctx context.Context, actor Actor, roomID, hostToken stri
 		if room.ManagedLobbyID != "" && !allowManaged {
 			return Room{}, conflict("MANAGED_LOBBY_OPERATION_REQUIRED", "Start this managed transport through its authoritative match lobby.")
 		}
+		if room.ManagedLobbyID != "" {
+			var attemptState string
+			if err := tx.QueryRow(ctx, `
+				SELECT COALESCE(attempt.state, '')
+				FROM match_lobbies AS lobby
+				LEFT JOIN match_attempts AS attempt ON attempt.id = lobby.current_attempt_id
+				WHERE lobby.id = $1
+			`, room.ManagedLobbyID).Scan(&attemptState); err != nil {
+				return Room{}, internal(err)
+			}
+			if attemptState == "ENDING" {
+				return Room{}, conflict("MATCH_TRANSPORT_ENDING", "The authoritative match is returning; transport start/replan is no longer allowed.")
+			}
+		}
 		if !room.ExpiresAt.After(now) {
 			return Room{}, conflict("ROOM_EXPIRED", "Room has expired.")
 		}
@@ -739,6 +753,41 @@ func (s *Service) Delete(ctx context.Context, actor Actor, roomID, hostToken str
 
 func (s *Service) DeleteManaged(ctx context.Context, actor Actor, roomID, hostToken string) (Room, error) {
 	return s.delete(ctx, actor, roomID, hostToken, true)
+}
+
+// CloseManagedByLobby is the internal retryable cleanup path used after an
+// authoritative match reaches a terminal state. It does not require the
+// ephemeral host token and is idempotent across process/relay failures.
+func (s *Service) CloseManagedByLobby(ctx context.Context, lobbyID, reason string) error {
+	lobbyID = strings.TrimSpace(lobbyID)
+	if lobbyID == "" {
+		return fmt.Errorf("managed lobby id is required")
+	}
+	now := s.now().UTC()
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	room, err := s.repository.GetManagedForUpdate(ctx, tx, lobbyID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := s.repository.Close(ctx, tx, room.ID, now); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	if room.TransportKind != TransportVNT && s.connectionCreator != nil {
+		if err := s.connectionCreator.CloseForRoom(ctx, room.ID, strings.TrimSpace(reason)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) delete(ctx context.Context, actor Actor, roomID, hostToken string, allowManaged bool) (Room, error) {
@@ -915,6 +964,20 @@ func (s *Service) VNTHostReady(ctx context.Context, actor Actor, roomID, hostTok
 	return s.hostOperation(ctx, actor, roomID, hostToken, func(ctx context.Context, tx pgx.Tx, room Room, now time.Time) (Room, error) {
 		if room.TransportKind != TransportVNT {
 			return Room{}, conflict("VNT_ROOM_REQUIRED", "This is not a VNT room.")
+		}
+		if room.ManagedLobbyID != "" {
+			var attemptState string
+			if err := tx.QueryRow(ctx, `
+				SELECT COALESCE(attempt.state, '')
+				FROM match_lobbies AS lobby
+				LEFT JOIN match_attempts AS attempt ON attempt.id = lobby.current_attempt_id
+				WHERE lobby.id = $1
+			`, room.ManagedLobbyID).Scan(&attemptState); err != nil {
+				return Room{}, internal(err)
+			}
+			if attemptState == "ENDING" {
+				return Room{}, conflict("MATCH_TRANSPORT_ENDING", "The authoritative match is returning; transport replan is no longer allowed.")
+			}
 		}
 		if generation != room.VNTGeneration {
 			return Room{}, conflict("VNT_GENERATION_STALE", "The VNT generation has changed.")

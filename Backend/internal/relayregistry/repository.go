@@ -359,7 +359,8 @@ func (r *Repository) AllocationClosed(ctx context.Context, nodeID, allocationID 
 	if state != "CLOSED" && state != "FAILED" {
 		if _, err := tx.Exec(ctx, `
 			UPDATE relay_allocations
-			SET state = 'CLOSED', closed_at = $3, updated_at = $3
+			SET state = 'CLOSED', closed_at = $3,
+			    revoke_requested_at = NULL, updated_at = $3
 			WHERE id = $1 AND relay_node_id = $2
 		`, allocationID, nodeID, now); err != nil {
 			return err
@@ -371,6 +372,12 @@ func (r *Repository) AllocationClosed(ctx context.Context, nodeID, allocationID 
 		`, nodeID, now); err != nil {
 			return err
 		}
+	} else if _, err := tx.Exec(ctx, `
+		UPDATE relay_allocations
+		SET revoke_requested_at = NULL, updated_at = $3
+		WHERE id = $1 AND relay_node_id = $2
+	`, allocationID, nodeID, now); err != nil {
+		return err
 	}
 	return tx.Commit(ctx)
 }
@@ -383,15 +390,55 @@ func (r *Repository) CloseConnectionAllocations(ctx context.Context, connectionI
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	rows, err := tx.Query(ctx, `
 		UPDATE relay_allocations
-		SET state = 'CLOSED', closed_at = $2, updated_at = $2
+		SET state = 'CLOSED', closed_at = COALESCE(closed_at, $2),
+		    revoke_requested_at = COALESCE(revoke_requested_at, $2), updated_at = $2
 		WHERE connection_id = $1 AND state NOT IN ('CLOSED', 'FAILED')
-		RETURNING `+allocationColumns,
+		RETURNING id`,
 		connectionID, now,
 	)
 	if err != nil {
 		return nil, err
 	}
-	var allocations []Allocation
+	var changedIDs []string
+	for rows.Next() {
+		var id string
+		if scanErr := rows.Scan(&id); scanErr != nil {
+			rows.Close()
+			return nil, scanErr
+		}
+		changedIDs = append(changedIDs, id)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	for _, allocationID := range changedIDs {
+		var nodeID string
+		if err := tx.QueryRow(ctx, `SELECT relay_node_id FROM relay_allocations WHERE id = $1`, allocationID).Scan(&nodeID); err != nil {
+			return nil, err
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE relay_nodes
+		SET active_allocations = GREATEST(active_allocations - 1, 0), updated_at = $2
+		WHERE id = $1
+		`, nodeID, now); err != nil {
+			return nil, err
+		}
+	}
+	// Return previously closed allocations whose control revoke was not
+	// acknowledged by the in-process publisher.  RevokeAllocation is
+	// idempotent, so a later room cleanup can safely retry the same message.
+	rows, err = tx.Query(ctx, `
+		SELECT `+allocationColumns+`
+		FROM relay_allocations
+		WHERE connection_id = $1 AND revoke_requested_at IS NOT NULL
+		ORDER BY updated_at, id
+	`, connectionID)
+	if err != nil {
+		return nil, err
+	}
+	allocations := make([]Allocation, 0)
 	for rows.Next() {
 		allocation, scanErr := scanAllocation(rows)
 		if scanErr != nil {
@@ -405,15 +452,6 @@ func (r *Repository) CloseConnectionAllocations(ctx context.Context, connectionI
 		return nil, err
 	}
 	rows.Close()
-	for _, allocation := range allocations {
-		if _, err := tx.Exec(ctx, `
-			UPDATE relay_nodes
-			SET active_allocations = GREATEST(active_allocations - 1, 0), updated_at = $2
-			WHERE id = $1
-		`, allocation.RelayNodeID, now); err != nil {
-			return nil, err
-		}
-	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}

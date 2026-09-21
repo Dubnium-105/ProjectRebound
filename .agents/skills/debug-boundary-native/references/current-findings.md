@@ -683,3 +683,12 @@ CompleteWeaponOrnament(manager, int32 code, FName ornament, FName role, FName we
 - r14 候选在交付前被源码复核拒绝，原 ZIP 与上述测试/安装记录保留，不作为修复版分发。`CompleteServerListen` 在原生调用前仍通过 `Observe(ObjectScan)` 写入并缓存 World/NetDriver；`IsAuthoritativeListeningWorld` 只检查结构，未检查原生监听实际成功，存在失败驱动误报 ready 的路径。
 - r14b 仅在原生 Listen 成功后发布 NetDriver，authority-ready 同时要求原子监听成功标记和既有 GameMode/World/driver/ServerConnection 条件。成功标记在开始新 Listen 前清除；原生部分初始化不再仅凭结构通过。该补修不证明 r13 的 World 超时已在实机修复，亦不改变 RoundState 的开局前空闲语义。
 - 最终构建、安装哈希和验收记录归档于 `docs/testing/host-preflight-20260913-r14b/`。两次原生冷启动、多人出生/移动射击/重连和第二局没有实际证据时继续 `NOT_RUN`。
+
+## 37. 两仓结算与清理协议（2026-09-21）
+
+- 新增 `match-lifecycle-v1`，独立于 `strict-roster-v2` 准入协议。原生事件使用完整 allocation/world/roster/route/match generation 作用域，`RESULT_CONFIRMED` 为 seq=1，`RETURN_READY` 为 seq=2。后者依赖原生返回通知完成以及后续 NetDriver flush；不以 BattleLog 上传或进程消失代替正常结算。
+- 结束阶段存在 `UWorld::NetDriver` 被清空的路径。生命周期桥接在进入 EndMatch 前捕获本局 World / GameMode / NetDriver，并持续校验 allocation scope；不能为了生成退场回执重写 World 的 NetDriver 字段。自然事件的生产与已排队回执分开管理，合法清理停止后续生产，不能抹去尚未 ACK 的回执。
+- 结果回调和冻结回调允许两种先后顺序，只有两项真实观察都到达才发布 seq=1。flush 必须来自捕获的 driver 和同一 World；World 字段为空时可继续排空，指向另一非空 driver 时拒绝迟到回调。已 arm 且 RETURN_READY 尚未 ACK 的正常退场最多保留 120 秒原生 cleanup wait，未 arm、异常或已 ACK 路径不延长。
+- Backend schema 49 新增 ENDING 和结算阶段。确认结果之后的进程丢失或超时保留 COMPLETED，警告与清理单独记录；结束窗口保留既有传输并禁止新准入。原生清理与网络清理都完成后才释放下一局门禁。
+- Toolbox 保存 DPAPI 加密回执后进行幂等上报和原生 ACK。重启只允许 PID 与创建时间完全匹配的进程句柄进行回收；查不到 PID 不是退出证据。旧 session/lobby/attempt/operation/run 的回调不能清除新局。
+- 本轮为源码、组件和打包验证，没有替换已安装游戏 DLL、附加游戏或进行三账号完整对局。四模式实机结果仍为 NOT_RUN，原生准入能力门禁保持不变。具体实现和验收边界见 `docs/testing/match-lifecycle-20260921/README.md`。

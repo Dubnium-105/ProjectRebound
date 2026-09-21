@@ -174,6 +174,26 @@ void CommandFramework::SetMatchConnectionEventsCallback(
     }
 }
 
+void CommandFramework::SetMatchLifecycleEventsCallback(MatchLifecycleCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onMatchLifecycleEvents = std::move(callback);
+    }
+}
+
+void CommandFramework::SetMatchLifecycleAckCallback(MatchLifecycleCallback callback)
+{
+    std::lock_guard<std::mutex> lock(lifecycleMutex);
+    if (!running.load() && !stopping)
+    {
+        std::lock_guard<std::mutex> callbackLock(callbackMutex);
+        onMatchLifecycleAck = std::move(callback);
+    }
+}
+
 void CommandFramework::SetMatchClearCallback(MatchClearCallback callback)
 {
     std::lock_guard<std::mutex> lock(lifecycleMutex);
@@ -1303,6 +1323,54 @@ CommandFramework::FrameResult CommandFramework::Dispatch(
             return SendResponse(
                 "match_connection_events_ack",
                 CommandProtocol::WithRequestId(std::move(result), request.requestId))
+                ? FrameResult::Processed
+                : FrameResult::TransportError;
+        }
+
+        if (request.command == "match_lifecycle_events" ||
+            request.command == "ack_match_lifecycle")
+        {
+            if (!request.requestId.has_value())
+            {
+                return SendError("invalid_request", "request_id is required")
+                    ? FrameResult::ProtocolError
+                    : FrameResult::TransportError;
+            }
+
+            MatchLifecycleCallback callback;
+            const std::string responseCommand = request.command ==
+                "match_lifecycle_events"
+                ? "match_lifecycle_events_ack"
+                : "ack_match_lifecycle_ack";
+            {
+                std::lock_guard<std::mutex> callbackLock(callbackMutex);
+                callback = request.command == "match_lifecycle_events"
+                    ? onMatchLifecycleEvents
+                    : onMatchLifecycleAck;
+            }
+            if (!callback)
+            {
+                return SendError(
+                    "lifecycle_unavailable",
+                    "match lifecycle handler is not available",
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+
+            const nlohmann::json result = callback(request.arguments);
+            if (!result.value("accepted", true))
+            {
+                return SendError(
+                    result.value("code", "lifecycle_rejected"),
+                    result.value("message", "match lifecycle request was rejected"),
+                    request.requestId)
+                    ? FrameResult::Processed
+                    : FrameResult::TransportError;
+            }
+            return SendResponse(
+                responseCommand,
+                CommandProtocol::WithRequestId(result, request.requestId))
                 ? FrameResult::Processed
                 : FrameResult::TransportError;
         }

@@ -488,14 +488,18 @@ func (s *Service) RevokeRelay(ctx context.Context, connectionID, reason string) 
 	if err != nil {
 		return err
 	}
-	if s.controlPublisher == nil {
-		return nil
+	if s.controlPublisher != nil {
+		for _, allocation := range allocations {
+			s.controlPublisher.Publish(allocation.RelayNodeID, ControlMessage{Type: "RevokeAllocation", Payload: map[string]any{
+				"allocation_id": allocation.ID,
+				"reason":        truncateReason(reason),
+			}})
+		}
 	}
-	for _, allocation := range allocations {
-		s.controlPublisher.Publish(allocation.RelayNodeID, ControlMessage{Type: "RevokeAllocation", Payload: map[string]any{
-			"allocation_id": allocation.ID,
-			"reason":        truncateReason(reason),
-		}})
+	if len(allocations) > 0 {
+		return &ServiceError{Status: 409, Code: "RELAY_ALLOCATION_REVOKE_PENDING", Message: "Relay allocation revocation is still pending.", Details: map[string]any{
+			"pending_allocations": len(allocations),
+		}}
 	}
 	return nil
 }

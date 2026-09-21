@@ -70,6 +70,13 @@ type TransportHTTPService interface {
 	TransportVNTHostReady(context.Context, Actor, TransportScopeRequest, string, int, string) (TransportRoomProjection, error)
 }
 
+// LifecycleHTTPService is optional so existing handler test doubles and
+// retired adapters do not accidentally claim the authority lifecycle API.
+type LifecycleHTTPService interface {
+	P2PLifecycle(context.Context, Actor, string, string, LifecycleInput) (Snapshot, error)
+	DedicatedLifecycle(context.Context, string, string, string, LifecycleInput) (Snapshot, error)
+}
+
 type HTTPHandler struct {
 	service HTTPService
 	logger  *slog.Logger
@@ -626,6 +633,23 @@ func (h *HTTPHandler) P2PComplete(w http.ResponseWriter, r *http.Request) {
 	h.writeSnapshot(w, r, snapshot, err)
 }
 
+func (h *HTTPHandler) P2PLifecycle(w http.ResponseWriter, r *http.Request) {
+	service, ok := h.service.(LifecycleHTTPService)
+	if !ok {
+		h.writeError(w, r, conflict("MATCH_LIFECYCLE_UNAVAILABLE", "The match lifecycle is unavailable.", nil))
+		return
+	}
+	var request LifecycleInput
+	if !h.decode(w, r, &request) {
+		return
+	}
+	snapshot, err := service.P2PLifecycle(
+		r.Context(), actorFromRequest(r), r.Header.Get(authoritySessionHeader),
+		chi.URLParam(r, "attempt_id"), request,
+	)
+	h.writeSnapshot(w, r, snapshot, err)
+}
+
 func (h *HTTPHandler) P2PNativeCleared(w http.ResponseWriter, r *http.Request) {
 	var request struct {
 		WorldInstanceID         string `json:"world_instance_id"`
@@ -739,6 +763,23 @@ func (h *HTTPHandler) Complete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	snapshot, err := h.service.Complete(r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader), chi.URLParam(r, "attempt_id"), request.Success, request.FailureCode)
+	h.writeSnapshot(w, r, snapshot, err)
+}
+
+func (h *HTTPHandler) DedicatedLifecycle(w http.ResponseWriter, r *http.Request) {
+	service, ok := h.service.(LifecycleHTTPService)
+	if !ok {
+		h.writeError(w, r, conflict("MATCH_LIFECYCLE_UNAVAILABLE", "The match lifecycle is unavailable.", nil))
+		return
+	}
+	var request LifecycleInput
+	if !h.decode(w, r, &request) {
+		return
+	}
+	snapshot, err := service.DedicatedLifecycle(
+		r.Context(), chi.URLParam(r, "server_id"), r.Header.Get(authoritySessionHeader),
+		chi.URLParam(r, "attempt_id"), request,
+	)
 	h.writeSnapshot(w, r, snapshot, err)
 }
 

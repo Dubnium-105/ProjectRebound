@@ -85,6 +85,11 @@ target_compile_features(strict_roster_cleanup_receipt_tests PRIVATE cxx_std_20)
 enable_strict_warnings(strict_roster_cleanup_receipt_tests)
 add_test(NAME strict_roster_cleanup_receipt_tests COMMAND strict_roster_cleanup_receipt_tests)
 
+add_executable(match_lifecycle_tests MatchLifecycleTests.cpp)
+target_compile_features(match_lifecycle_tests PRIVATE cxx_std_20)
+enable_strict_warnings(match_lifecycle_tests)
+add_test(NAME match_lifecycle_tests COMMAND match_lifecycle_tests)
+
 add_executable(native_login_grant_policy_tests
     NativeLoginGrantPolicyTests.cpp
 )

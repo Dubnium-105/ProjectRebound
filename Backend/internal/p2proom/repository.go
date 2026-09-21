@@ -127,6 +127,15 @@ func (r *Repository) GetForUpdate(ctx context.Context, tx pgx.Tx, roomID string)
 	return scanRoom(tx.QueryRow(ctx, `SELECT `+roomColumns+` FROM p2p_rooms WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, roomID))
 }
 
+func (r *Repository) GetManagedForUpdate(ctx context.Context, tx pgx.Tx, lobbyID string) (Room, error) {
+	return scanRoom(tx.QueryRow(ctx, `
+		SELECT `+roomColumns+`
+		FROM p2p_rooms
+		WHERE managed_lobby_id = $1 AND deleted_at IS NULL
+		FOR UPDATE
+	`, lobbyID))
+}
+
 func (r *Repository) List(ctx context.Context, filter ListFilter, hasSlots int) ([]Room, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT `+roomColumns+`
@@ -164,9 +173,19 @@ func (r *Repository) ManagedLobbyAllowsPlayer(ctx context.Context, tx pgx.Tx, ro
 	var allowed bool
 	err := tx.QueryRow(ctx, `
 		SELECT room.managed_lobby_id IS NULL OR EXISTS (
-			SELECT 1 FROM match_lobby_members AS member
+			SELECT 1
+			FROM match_lobby_members AS member
+			JOIN match_lobbies AS lobby ON lobby.id = member.lobby_id
+			LEFT JOIN match_attempts AS attempt ON attempt.id = lobby.current_attempt_id
 			WHERE member.lobby_id = room.managed_lobby_id
 			  AND member.player_id = $2 AND member.membership_state = 'ACTIVE'
+			  AND (
+				  lobby.current_attempt_id IS NULL
+				  OR (
+					  lobby.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING')
+					  AND attempt.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING')
+				  )
+				)
 		)
 		FROM p2p_rooms AS room WHERE room.id = $1
 	`, roomID, playerID).Scan(&allowed)
@@ -194,7 +213,7 @@ func (r *Repository) ValidateManagedAttemptScope(ctx context.Context, tx pgx.Tx,
 		 AND roster.player_id = $2
 		WHERE room.id = $1
 		  AND attempt.id = $3
-		  AND attempt.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING')
+		  AND attempt.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING', 'ENDING')
 		  AND attempt.roster_revision = $4
 		  AND attempt.route_generation = $5
 		  AND ($6 = '' OR roster.room_role = $6)

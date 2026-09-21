@@ -137,7 +137,19 @@ func TestStrictRosterP2PHostOwnedProcessExitCleanupAgainstPostgreSQL(t *testing.
 	); err != nil {
 		t.Fatal(err)
 	}
-	terminal, err := service.P2PComplete(ctx, owner, authoritySession, attemptID, true, "")
+	ending, err := service.P2PLifecycle(ctx, owner, authoritySession, attemptID, LifecycleInput{
+		Phase: LifecycleResultConfirmed, WorldInstanceID: connecting.Attempt.WorldInstanceID,
+		RosterRevision: connecting.Attempt.RosterRevision, RouteGeneration: connecting.Attempt.RouteGeneration,
+		MatchGeneration: connecting.Attempt.MatchGeneration, EventSeq: 1,
+	})
+	if err != nil || ending.Attempt == nil || ending.Attempt.State != AttemptEnding {
+		t.Fatalf("result confirmation = %+v, %v", ending, err)
+	}
+	terminal, err := service.P2PLifecycle(ctx, owner, authoritySession, attemptID, LifecycleInput{
+		Phase: LifecycleReturnReady, WorldInstanceID: ending.Attempt.WorldInstanceID,
+		RosterRevision: ending.Attempt.RosterRevision, RouteGeneration: ending.Attempt.RouteGeneration,
+		MatchGeneration: ending.Attempt.MatchGeneration, EventSeq: 2,
+	})
 	if err != nil || terminal.State != StateCompleted {
 		t.Fatalf("complete P2P attempt = %+v, %v", terminal, err)
 	}
@@ -1543,9 +1555,32 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	if err != nil || reconnectedView.Local.CanRetry {
 		t.Fatalf("reconnected P2P member advertised reconnect capability: %+v, %v", reconnectedView.Local, err)
 	}
-	terminal, err := service.P2PComplete(ctx, actors[0], authoritySession, attemptID, true, "")
+	resultInput := LifecycleInput{
+		Phase: LifecycleResultConfirmed, WorldInstanceID: reconnected.Attempt.WorldInstanceID,
+		RosterRevision: reconnected.Attempt.RosterRevision, RouteGeneration: reconnected.Attempt.RouteGeneration,
+		MatchGeneration: reconnected.Attempt.MatchGeneration, EventSeq: 1,
+	}
+	ending, err := service.P2PLifecycle(ctx, actors[0], authoritySession, attemptID, resultInput)
+	if err != nil || ending.Attempt == nil || ending.Attempt.State != AttemptEnding {
+		t.Fatalf("result confirmation = %+v, %v", ending, err)
+	}
+	if err := service.P2PAuthorityHeartbeat(ctx, actors[0], authoritySession, attemptID); err != nil {
+		t.Fatalf("ENDING authority heartbeat was rejected: %v", err)
+	}
+	returnInput := LifecycleInput{
+		Phase: LifecycleReturnReady, WorldInstanceID: ending.Attempt.WorldInstanceID,
+		RosterRevision: ending.Attempt.RosterRevision, RouteGeneration: ending.Attempt.RouteGeneration,
+		MatchGeneration: ending.Attempt.MatchGeneration, EventSeq: 2,
+	}
+	terminal, err := service.P2PLifecycle(ctx, actors[0], authoritySession, attemptID, returnInput)
 	if err != nil || terminal.State != StateCompleted {
 		t.Fatalf("complete = %+v, %v", terminal, err)
+	}
+	if replayed, err := service.P2PLifecycle(ctx, actors[0], authoritySession, attemptID, resultInput); err != nil || replayed.State != StateCompleted {
+		t.Fatalf("delayed RESULT_CONFIRMED replay was not idempotent: %+v, %v", replayed, err)
+	}
+	if replayed, err := service.P2PLifecycle(ctx, actors[0], authoritySession, attemptID, returnInput); err != nil || replayed.State != StateCompleted {
+		t.Fatalf("RETURN_READY replay was not idempotent: %+v, %v", replayed, err)
 	}
 	if repeatedTerminal, err := service.P2PComplete(ctx, actors[0], authoritySession, attemptID, true, ""); err != nil || repeatedTerminal.State != StateCompleted {
 		t.Fatalf("completion retry was not idempotent: %+v, %v", repeatedTerminal, err)
@@ -1599,6 +1634,23 @@ func TestStrictRosterP2PLifecycleAgainstPostgreSQL(t *testing.T) {
 	}
 	if repeatedAbort, err := service.P2PComplete(ctx, actors[0], abortSession, abortLobby.Attempt.AttemptID, false, "PAYLOAD_INSTALL_FAILED"); err != nil || repeatedAbort.State != StateAborted {
 		t.Fatalf("provisioning abort retry was not idempotent: %+v, %v", repeatedAbort, err)
+	}
+	if _, err := service.Create(ctx, actors[0], strictP2PCreateInput("Blocked Until Abort Cleanup", "integration-roster-abort-blocked")); errorCode(err) != "MATCH_ATTEMPT_CLEANUP_PENDING" {
+		t.Fatalf("new lobby escaped the aborted attempt cleanup gate: %v", err)
+	}
+	if _, err := service.P2PNativeCleared(
+		ctx, actors[0], abortSession, abortLobby.Attempt.AttemptID, "",
+		abortLobby.Attempt.RosterRevision, abortLobby.Attempt.RouteGeneration,
+		OwnedProcessExitEvidence{EvidenceKind: "native_process_not_started"},
+	); err != nil {
+		t.Fatalf("preflight abort native cleanup acknowledgement: %v", err)
+	}
+	var abortCleanupState string
+	if err := pool.QueryRow(ctx, `SELECT cleanup_state FROM match_attempts WHERE id = $1`, abortLobby.Attempt.AttemptID).Scan(&abortCleanupState); err != nil {
+		t.Fatal(err)
+	}
+	if abortCleanupState != "CLEARED" {
+		t.Fatalf("preflight abort cleanup state = %s, want CLEARED", abortCleanupState)
 	}
 	if err := pool.QueryRow(ctx, `SELECT state FROM p2p_match_sessions WHERE match_attempt_id = $1`, abortLobby.Attempt.AttemptID).Scan(&projectedTerminalState); err != nil {
 		t.Fatal(err)

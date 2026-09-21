@@ -428,7 +428,13 @@ func (r *Repository) CloseForRoom(ctx context.Context, roomID, reason string, no
 		UPDATE connections
 		SET state = 'CLOSED', failure_reason = NULLIF($2, ''),
 		    closed_at = COALESCE(closed_at, $3), updated_at = $3
-		WHERE room_id = $1 AND state NOT IN ('FAILED', 'EXPIRED', 'CLOSED')
+		WHERE room_id = $1
+		  AND (state NOT IN ('FAILED', 'EXPIRED', 'CLOSED')
+		       OR EXISTS (
+			   SELECT 1 FROM relay_allocations
+			   WHERE relay_allocations.connection_id = connections.id
+			     AND relay_allocations.revoke_requested_at IS NOT NULL
+		       ))
 		RETURNING `+connectionColumns,
 		roomID, reason, now,
 	)
@@ -460,7 +466,12 @@ func (r *Repository) CloseForRoomMember(
 		SET state = 'CLOSED', failure_reason = NULLIF($3, ''),
 		    closed_at = COALESCE(closed_at, $4), updated_at = $4
 		WHERE room_id = $1 AND peer_player_id = $2
-		  AND state NOT IN ('FAILED', 'EXPIRED', 'CLOSED')
+		  AND (state NOT IN ('FAILED', 'EXPIRED', 'CLOSED')
+		       OR EXISTS (
+			   SELECT 1 FROM relay_allocations
+			   WHERE relay_allocations.connection_id = connections.id
+			     AND relay_allocations.revoke_requested_at IS NOT NULL
+		       ))
 		RETURNING `+connectionColumns,
 		roomID, playerID, reason, now,
 	)

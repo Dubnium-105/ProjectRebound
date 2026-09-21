@@ -59,6 +59,10 @@ type P2PMatchProjector interface {
 	CompleteManagedAttempt(context.Context, pgx.Tx, string, bool, time.Time) error
 }
 
+type p2pManagedTransportCloser interface {
+	CloseManagedByLobby(context.Context, string, string) error
+}
+
 type Service struct {
 	repository      *Repository
 	config          config.MatchLobbyConfig
@@ -113,6 +117,135 @@ func (s *Service) SetP2PMatchProjector(projector P2PMatchProjector) {
 	s.p2pProjector = projector
 }
 
+func (s *Service) retryP2PTransportCleanup(ctx context.Context, lobbyID, attemptID string) {
+	if err := s.performP2PTransportCleanup(ctx, lobbyID, "MATCH_ATTEMPT_COMPLETED"); err != nil {
+		s.recordCleanupError(ctx, attemptID, err)
+		return
+	}
+	_, _ = s.repository.pool.Exec(ctx, `
+		UPDATE match_attempts
+		SET cleanup_state = CASE WHEN native_cleared_at IS NOT NULL THEN 'CLEARED' ELSE cleanup_state END,
+		    cleanup_lease_expires_at = CASE WHEN native_cleared_at IS NOT NULL THEN NULL ELSE cleanup_lease_expires_at END,
+		    cleanup_error = NULL, updated_at = $2
+		WHERE id = $1 AND cleanup_state = 'PENDING'
+	`, attemptID, s.now().UTC())
+}
+
+func (s *Service) performP2PTransportCleanup(ctx context.Context, lobbyID, reason string) error {
+	closer, ok := s.p2p.(p2pManagedTransportCloser)
+	if !ok {
+		return nil
+	}
+	return closer.CloseManagedByLobby(ctx, lobbyID, reason)
+}
+
+func (s *Service) observeP2PNativeClearedPending(
+	ctx context.Context,
+	authorityID, authoritySession, attemptID, worldInstanceID string,
+	rosterRevision int64, routeGeneration int, evidence *OwnedProcessExitEvidence, cleanupErr error,
+) (Snapshot, error) {
+	now := s.now().UTC()
+	message := cleanupErr.Error()
+	if len(message) > 256 {
+		message = message[:256]
+	}
+	tx, err := s.repository.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return Snapshot{}, internal(err)
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	var lobbyID, storedWorld string
+	var state AttemptState
+	var storedRoster, storedRoute int64
+	var cleanupState string
+	err = tx.QueryRow(ctx, `
+		SELECT lobby_id, state, cleanup_state, COALESCE(world_instance_id, ''), roster_revision, route_generation
+		FROM match_attempts
+		WHERE id = $1 AND authority_id = $2 AND authority_session_id = $3 AND hosting_kind = 'P2P'
+		  AND state IN ('COMPLETED', 'ABORTED')
+		FOR UPDATE
+	`, attemptID, authorityID, authoritySession).Scan(&lobbyID, &state, &cleanupState, &storedWorld, &storedRoster, &storedRoute)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Snapshot{}, forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "The authority session does not own a terminal P2P match attempt.")
+	}
+	if err != nil {
+		return Snapshot{}, internal(err)
+	}
+	if storedWorld != worldInstanceID || storedRoster != rosterRevision || storedRoute != int64(routeGeneration) {
+		return Snapshot{}, conflict("MATCH_CLEANUP_SCOPE_CONFLICT", "The native cleanup receipt belongs to a different P2P scope.", nil)
+	}
+	if cleanupState == "PENDING" {
+		if _, err := tx.Exec(ctx, `
+			UPDATE match_attempts SET native_cleared_at = COALESCE(native_cleared_at, $2), cleanup_error = $3, updated_at = $2
+			WHERE id = $1
+		`, attemptID, now, message); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		var receiptExists bool
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM vnt_security_audit_logs
+				WHERE event_type = 'MATCH_NATIVE_CLEANUP_CLEARED'
+				  AND request_id = $1
+				  AND details->>'attempt_id' = $1
+				  AND details->>'lobby_id' = $2
+			)
+		`, attemptID, lobbyID).Scan(&receiptExists); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if receiptExists {
+			if err := verifyNativeCleanupAudit(ctx, tx, lobbyID, attemptID, evidence); err != nil {
+				return Snapshot{}, err
+			}
+		} else if err := insertNativeCleanupAudit(ctx, tx, lobbyID, attemptID, authorityID, string(HostingP2P), authoritySession, worldInstanceID, rosterRevision, routeGeneration, evidence, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Snapshot{}, internal(err)
+	}
+	return s.Get(ctx, lobbyID, "")
+}
+
+func (s *Service) recordCleanupError(ctx context.Context, attemptID string, cleanupErr error) {
+	if cleanupErr == nil {
+		return
+	}
+	message := cleanupErr.Error()
+	if len(message) > 256 {
+		message = message[:256]
+	}
+	_, _ = s.repository.pool.Exec(ctx, `
+		UPDATE match_attempts SET cleanup_error = $2, updated_at = $3
+		WHERE id = $1 AND state IN ('COMPLETED', 'ABORTED') AND cleanup_state = 'PENDING'
+	`, attemptID, message, s.now().UTC())
+}
+
+type queryRower interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func ensurePlayerCleanupCleared(ctx context.Context, executor queryRower, playerID string) error {
+	var attemptID string
+	err := executor.QueryRow(ctx, `
+		SELECT attempt.id
+		FROM match_attempt_roster AS roster
+		JOIN match_attempts AS attempt ON attempt.id = roster.attempt_id
+		WHERE roster.player_id = $1
+		  AND attempt.state IN ('COMPLETED', 'ABORTED')
+		  AND attempt.cleanup_state = 'PENDING'
+		ORDER BY attempt.completed_at DESC NULLS LAST, attempt.id
+		LIMIT 1
+	`, playerID).Scan(&attemptID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return internal(err)
+	}
+	return conflict("MATCH_ATTEMPT_CLEANUP_PENDING", "The previous match attempt is still releasing its native world and transport resources.", map[string]any{"attempt_id": attemptID})
+}
+
 func (s *Service) FailClosedDisabledAttempts(ctx context.Context) error {
 	// Configuration validation is fail-closed for new work.  It must never
 	// mutate shared match attempts: a second instance starting with a different
@@ -141,6 +274,9 @@ func (s *Service) Create(ctx context.Context, actor Actor, input CreateInput) (C
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	if err := s.repository.LockPlayerLobby(ctx, tx, actor.PlayerID); err != nil {
 		return CreateResult{}, internal(err)
+	}
+	if err := ensurePlayerCleanupCleared(ctx, tx, actor.PlayerID); err != nil {
+		return CreateResult{}, err
 	}
 	if input.IdempotencyKey != "" {
 		if err := s.repository.LockIdempotency(ctx, tx, actor.PlayerID, input.IdempotencyKey); err != nil {
@@ -259,6 +395,9 @@ func (s *Service) TransportVNTBootstrap(ctx context.Context, actor Actor, scopeR
 	if err != nil {
 		return p2proom.VNTBootstrap{}, err
 	}
+	if scope.AttemptState == AttemptEnding {
+		return p2proom.VNTBootstrap{}, conflict("MATCH_TRANSPORT_ENDING", "The authoritative match is returning; transport replan is no longer allowed.", nil)
+	}
 	if scope.TransportKind != TransportVNT {
 		return p2proom.VNTBootstrap{}, conflict("MATCH_VNT_TRANSPORT_REQUIRED", "This authoritative attempt does not use VNT transport.", nil)
 	}
@@ -304,6 +443,9 @@ func (s *Service) TransportVNTHostReady(ctx context.Context, actor Actor, scopeR
 	scope, _, err := s.authorizeTransport(ctx, actor, scopeRequest)
 	if err != nil {
 		return TransportRoomProjection{}, err
+	}
+	if scope.AttemptState == AttemptEnding {
+		return TransportRoomProjection{}, conflict("MATCH_TRANSPORT_ENDING", "The authoritative match is returning; transport replan is no longer allowed.", nil)
 	}
 	if scope.TransportKind != TransportVNT {
 		return TransportRoomProjection{}, conflict("MATCH_VNT_TRANSPORT_REQUIRED", "This authoritative attempt does not use VNT transport.", nil)
@@ -507,6 +649,9 @@ func (s *Service) Join(ctx context.Context, actor Actor, lobbyID string, teamID 
 	if err := s.repository.LockPlayerLobby(ctx, tx, actor.PlayerID); err != nil {
 		return Snapshot{}, internal(err)
 	}
+	if err := ensurePlayerCleanupCleared(ctx, tx, actor.PlayerID); err != nil {
+		return Snapshot{}, err
+	}
 	lobby, err := s.repository.GetLobbyForUpdate(ctx, tx, lobbyID)
 	if err != nil {
 		return Snapshot{}, s.mapLobbyError(err)
@@ -691,8 +836,13 @@ func (s *Service) Presence(ctx context.Context, actor Actor, lobbyID, transportH
 		return Snapshot{}, forbidden("MATCH_LOBBY_MEMBERSHIP_REQUIRED", "Active lobby membership is required.")
 	}
 	lobby, err := s.repository.GetLobby(ctx, lobbyID)
-	if online && err == nil && lobby.HostingKind == HostingP2P && lobby.P2PRoomID != "" && actor.PlayerID == lobby.OwnerPlayerID && s.p2p != nil {
-		_, _ = s.p2p.Heartbeat(ctx, toP2PActor(actor), lobby.P2PRoomID, transportHostToken)
+	if err != nil {
+		return Snapshot{}, s.mapLobbyError(err)
+	}
+	if online && lobby.HostingKind == HostingP2P && lobby.P2PRoomID != "" && actor.PlayerID == lobby.OwnerPlayerID && s.p2p != nil {
+		if _, err := s.p2p.Heartbeat(ctx, toP2PActor(actor), lobby.P2PRoomID, transportHostToken); err != nil {
+			return Snapshot{}, mapTransportDependencyError(err)
+		}
 	}
 	return s.Get(ctx, lobbyID, actor.PlayerID)
 }
@@ -750,9 +900,13 @@ func (s *Service) Leave(ctx context.Context, actor Actor, lobbyID, transportHost
 	}
 	if lobby.HostingKind == HostingP2P && lobby.P2PRoomID != "" && s.p2p != nil {
 		if member.Role == "OWNER" {
-			_, _ = s.p2p.DeleteManaged(ctx, toP2PActor(actor), lobby.P2PRoomID, transportHostToken)
+			if _, err := s.p2p.DeleteManaged(ctx, toP2PActor(actor), lobby.P2PRoomID, transportHostToken); err != nil {
+				return Snapshot{}, mapTransportDependencyError(err)
+			}
 		} else {
-			_, _ = s.p2p.LeaveManaged(ctx, toP2PActor(actor), lobby.P2PRoomID)
+			if _, err := s.p2p.LeaveManaged(ctx, toP2PActor(actor), lobby.P2PRoomID); err != nil {
+				return Snapshot{}, mapTransportDependencyError(err)
+			}
 		}
 	}
 	return s.Get(ctx, lobby.ID, actor.PlayerID)
@@ -768,6 +922,12 @@ func (s *Service) Start(ctx context.Context, actor Actor, lobbyID string, expect
 		return Snapshot{}, internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if err := s.repository.LockPlayerLobby(ctx, tx, actor.PlayerID); err != nil {
+		return Snapshot{}, internal(err)
+	}
+	if err := ensurePlayerCleanupCleared(ctx, tx, actor.PlayerID); err != nil {
+		return Snapshot{}, err
+	}
 	lobby, err := s.repository.GetLobbyForUpdate(ctx, tx, lobbyID)
 	if err != nil {
 		return Snapshot{}, s.mapLobbyError(err)
@@ -793,6 +953,23 @@ func (s *Service) Start(ctx context.Context, actor Actor, lobbyID string, expect
 	}
 	if cleanupPending {
 		return Snapshot{}, conflict("MATCH_ATTEMPT_CLEANUP_PENDING", "The previous match attempt is still releasing its native world and transport resources.", nil)
+	}
+	var memberCleanupPending bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM match_lobby_members AS member
+			JOIN match_attempt_roster AS roster ON roster.player_id = member.player_id
+			JOIN match_attempts AS attempt ON attempt.id = roster.attempt_id
+			WHERE member.lobby_id = $1 AND member.membership_state = 'ACTIVE'
+			  AND attempt.state IN ('COMPLETED', 'ABORTED')
+			  AND attempt.cleanup_state = 'PENDING'
+		)
+	`, lobby.ID).Scan(&memberCleanupPending); err != nil {
+		return Snapshot{}, internal(err)
+	}
+	if memberCleanupPending {
+		return Snapshot{}, conflict("MATCH_ATTEMPT_CLEANUP_PENDING", "A seated player is still releasing resources from a previous match attempt.", nil)
 	}
 	if err := requireOpenRevision(lobby, expectedRevision); err != nil {
 		return Snapshot{}, err
@@ -1123,7 +1300,7 @@ func (s *Service) P2PAuthorityReady(ctx context.Context, actor Actor, attemptID,
 				    connection_deadline = $5, authority_last_seen_at = $6,
 				    host_reconnect_deadline = NULL, updated_at = $6
 				WHERE id = $1 AND authority_id = $7 AND authority_session_id = $8
-				  AND state IN ('CONNECTING', 'RUNNING')
+			AND state IN ('CONNECTING', 'RUNNING')
 				  AND route_generation = $9 AND payload_route_generation = $9
 				  AND world_instance_id = $4
 			`, attemptID, endpointHost, endpointPort, worldInstanceID, deadline, now,
@@ -2391,7 +2568,7 @@ func (s *Service) MarkDisconnected(ctx context.Context, authorityID, authoritySe
 		JOIN match_attempt_roster AS roster
 		  ON roster.attempt_id = attempt.id AND roster.player_id = $4
 		WHERE attempt.id = $1 AND attempt.authority_id = $2 AND attempt.authority_session_id = $3
-		  AND state IN ('CONNECTING', 'RUNNING')
+		  AND state IN ('CONNECTING', 'RUNNING', 'ENDING')
 		FOR UPDATE OF attempt, roster
 	`, attemptID, authorityID, authoritySession, playerID).Scan(
 		&lobbyID, &currentRouteGeneration, &storedWorldInstanceID, &roomRole,
@@ -2605,10 +2782,11 @@ func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authority
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	var reconnecting, hostLiveCurrent, hostLiveUnverified bool
+	var attemptState AttemptState
 	var hosting HostingKind
 	var lobbyID, roomID string
 	err = tx.QueryRow(ctx, `
-		SELECT attempt.hosting_kind, attempt.lobby_id, COALESCE(lobby.p2p_room_id, ''),
+		SELECT attempt.hosting_kind, attempt.lobby_id, COALESCE(lobby.p2p_room_id, ''), attempt.state,
 		       attempt.host_reconnect_deadline IS NOT NULL,
 		       COALESCE(host.connection_state = 'CONNECTED'
 		                AND host.live_connection_generation = host.connection_generation
@@ -2626,11 +2804,11 @@ func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authority
 		LEFT JOIN match_attempt_roster AS host
 		  ON host.attempt_id = attempt.id AND host.room_role = 'HOST'
 		WHERE attempt.id = $1 AND attempt.authority_id = $2 AND attempt.authority_session_id = $3
-		  AND (attempt.state IN ('CONNECTING', 'RUNNING')
+		  AND (attempt.state IN ('CONNECTING', 'RUNNING', 'ENDING')
 		       OR (attempt.state = 'PROVISIONING' AND attempt.hosting_kind = 'P2P'))
 		FOR UPDATE OF attempt
 	`, attemptID, authorityID, authoritySession).Scan(
-		&hosting, &lobbyID, &roomID, &reconnecting, &hostLiveCurrent, &hostLiveUnverified,
+		&hosting, &lobbyID, &roomID, &attemptState, &reconnecting, &hostLiveCurrent, &hostLiveUnverified,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "This authority is not assigned to the active match attempt.")
@@ -2671,7 +2849,7 @@ func (s *Service) AuthorityHeartbeat(ctx context.Context, authorityID, authority
 	// advance the authorization route.  The old live generation/nonce remains
 	// untouched until its native DISCONNECTED event arrives; reconnecting after
 	// a prior route refresh merely keeps the attempt alive.
-	if reconnecting && hostLiveCurrent {
+	if attemptState != AttemptEnding && reconnecting && hostLiveCurrent {
 		if _, err := tx.Exec(ctx, `
 			UPDATE match_attempts SET authority_last_seen_at = $3,
 			       route_generation = route_generation + 1,
@@ -2724,17 +2902,18 @@ func (s *Service) Complete(ctx context.Context, authorityID, authoritySession, a
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	var lobbyID, hosting string
-	var metaMatchID, storedFailureCode, cleanupState string
+	var metaMatchID, storedFailureCode, cleanupState, lifecyclePhase, storedCompletionWarning string
 	var currentState AttemptState
 	err = tx.QueryRow(ctx, `
 		SELECT lobby_id, hosting_kind, COALESCE(meta_match_id, ''), state,
-		       COALESCE(failure_code, ''), cleanup_state
+		       COALESCE(failure_code, ''), cleanup_state,
+		       COALESCE(lifecycle_phase, ''), COALESCE(completion_warning, '')
 		FROM match_attempts
 		WHERE id = $1 AND authority_id = $2 AND authority_session_id = $3
 		FOR UPDATE
 	`, attemptID, authorityID, authoritySession).Scan(
 		&lobbyID, &hosting, &metaMatchID, &currentState, &storedFailureCode,
-		&cleanupState,
+		&cleanupState, &lifecyclePhase, &storedCompletionWarning,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Snapshot{}, forbidden("MATCH_AUTHORITY_SCOPE_REQUIRED", "This authority is not assigned to the active match attempt.")
@@ -2743,8 +2922,27 @@ func (s *Service) Complete(ctx context.Context, authorityID, authoritySession, a
 		return Snapshot{}, internal(err)
 	}
 	if currentState == AttemptCompleted || currentState == AttemptAborted {
+		if currentState == AttemptCompleted && !success && lifecyclePhase != "" {
+			// A supervisor can report process loss after the ending watchdog or
+			// RETURN_READY already completed the attempt.  The durable result is
+			// authoritative; retain the first warning and make this late report
+			// idempotently successful so a durable outbox cannot wedge on 409.
+			if storedCompletionWarning == "" {
+				if _, err := tx.Exec(ctx, `
+					UPDATE match_attempts SET completion_warning = $2, updated_at = $3
+					WHERE id = $1 AND state = 'COMPLETED' AND completion_warning IS NULL
+				`, attemptID, failureCode, now); err != nil {
+					return Snapshot{}, internal(err)
+				}
+			}
+			if err := tx.Commit(ctx); err != nil {
+				return Snapshot{}, internal(err)
+			}
+			return s.Get(ctx, lobbyID, "")
+		}
 		if (success && currentState != AttemptCompleted) ||
-			(!success && (currentState != AttemptAborted || storedFailureCode != failureCode)) {
+			(!success && currentState == AttemptAborted && storedFailureCode != failureCode) ||
+			(!success && currentState == AttemptCompleted && storedCompletionWarning != failureCode) {
 			return Snapshot{}, conflict("MATCH_ATTEMPT_COMPLETION_CONFLICT", "The attempt already has a different terminal result.", nil)
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -2752,8 +2950,18 @@ func (s *Service) Complete(ctx context.Context, authorityID, authoritySession, a
 		}
 		return s.Get(ctx, lobbyID, "")
 	}
-	if success && currentState != AttemptRunning {
-		return Snapshot{}, conflict("MATCH_ATTEMPT_NOT_RUNNING", "A successful match can complete only after it is running.", nil)
+	completionWarning := ""
+	if !success && currentState == AttemptEnding && lifecyclePhase != "" {
+		// Once a scoped native result is confirmed, a later process-loss report
+		// must not overwrite the known successful result with ABORTED. Preserve
+		// the exit reason separately for operators and retry cleanup normally.
+		completionWarning = failureCode
+		success = true
+		failureCode = ""
+	}
+	if success && (currentState != AttemptEnding ||
+		(lifecyclePhase != string(LifecycleReturnReady) && completionWarning == "")) {
+		return Snapshot{}, conflict("MATCH_RETURN_NOT_READY", "The result is confirmed but native return has not completed.", nil)
 	}
 	if !success && currentState != AttemptProvisioning && currentState != AttemptConnecting && currentState != AttemptRunning {
 		return Snapshot{}, conflict("MATCH_ATTEMPT_NOT_ACTIVE", "The match attempt cannot be aborted from its current state.", nil)
@@ -2766,11 +2974,12 @@ func (s *Service) Complete(ctx context.Context, authorityID, authoritySession, a
 	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE match_attempts SET state = $3, failure_code = NULLIF($4, ''),
+		       completion_warning = NULLIF($7, ''),
 		       completed_at = $5, cleanup_state = 'PENDING',
 		       cleanup_requested_at = COALESCE(cleanup_requested_at, $5),
 		       cleanup_lease_expires_at = $6, cleanup_error = NULL,
 		       updated_at = $5 WHERE id = $1 AND authority_id = $2
-	`, attemptID, authorityID, attemptState, failureCode, now, now.Add(s.provisioningTimeout())); err != nil {
+	`, attemptID, authorityID, attemptState, failureCode, now, now.Add(s.provisioningTimeout()), completionWarning); err != nil {
 		return Snapshot{}, internal(err)
 	}
 	if _, err := tx.Exec(ctx, `UPDATE match_lobbies SET state = $2, closed_at = $3, updated_at = $3 WHERE id = $1`, lobbyID, lobbyState, now); err != nil {
@@ -2813,6 +3022,30 @@ func (s *Service) Complete(ctx context.Context, authorityID, authoritySession, a
 		if _, err := tx.Exec(ctx, `UPDATE p2p_rooms SET state = 'CLOSED', closed_at = $2, updated_at = $2 WHERE managed_lobby_id = $1`, lobbyID, now); err != nil {
 			return Snapshot{}, internal(err)
 		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE p2p_room_members AS member
+			SET status = 'LEFT', left_at = COALESCE(member.left_at, $2)
+			FROM p2p_rooms AS room
+			WHERE room.managed_lobby_id = $1 AND member.room_id = room.id AND member.status = 'ACTIVE'
+		`, lobbyID, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE p2p_vnt_sessions AS session
+			SET state = 'CLOSED', updated_at = $2
+			FROM p2p_rooms AS room
+			WHERE room.managed_lobby_id = $1 AND session.room_id = room.id AND session.state <> 'CLOSED'
+		`, lobbyID, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE p2p_vnt_member_sessions AS member_session
+			SET state = 'STOPPED', last_report_at = $2
+			FROM p2p_rooms AS room
+			WHERE room.managed_lobby_id = $1 AND member_session.room_id = room.id AND member_session.state <> 'STOPPED'
+		`, lobbyID, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
 	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE match_lobby_members SET presence_state = 'OFFLINE', ready = FALSE
@@ -2822,6 +3055,9 @@ func (s *Service) Complete(ctx context.Context, authorityID, authoritySession, a
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Snapshot{}, internal(err)
+	}
+	if hosting == string(HostingP2P) {
+		s.retryP2PTransportCleanup(ctx, lobbyID, attemptID)
 	}
 	return s.Get(ctx, lobbyID, "")
 }
@@ -2865,19 +3101,21 @@ func (s *Service) AdminForceAbort(
 		return Snapshot{}, internal(err)
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	var lobbyID, hosting, authorityID, metaMatchID, storedFailureCode, cleanupState, lobbyState string
+	var lobbyID, hosting, authorityID, authoritySession, metaMatchID, storedFailureCode, cleanupState, lobbyState, lifecyclePhase string
 	var currentState AttemptState
 	err = tx.QueryRow(ctx, `
 		SELECT attempt.lobby_id, attempt.hosting_kind, COALESCE(attempt.authority_id, ''),
+		       COALESCE(attempt.authority_session_id, ''),
 		       COALESCE(attempt.meta_match_id, ''), attempt.state,
-		       COALESCE(attempt.failure_code, ''), attempt.cleanup_state, lobby.state
+		       COALESCE(attempt.failure_code, ''), attempt.cleanup_state,
+		       COALESCE(attempt.lifecycle_phase, ''), lobby.state
 		FROM match_attempts AS attempt
 		JOIN match_lobbies AS lobby ON lobby.id = attempt.lobby_id
 		WHERE attempt.id = $1
 		FOR UPDATE OF attempt, lobby
 	`, attemptID).Scan(
-		&lobbyID, &hosting, &authorityID, &metaMatchID, &currentState,
-		&storedFailureCode, &cleanupState, &lobbyState,
+		&lobbyID, &hosting, &authorityID, &authoritySession, &metaMatchID, &currentState,
+		&storedFailureCode, &cleanupState, &lifecyclePhase, &lobbyState,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Snapshot{}, notFound("MATCH_ATTEMPT_NOT_FOUND", "The match attempt was not found.")
@@ -2896,6 +3134,17 @@ func (s *Service) AdminForceAbort(
 	}
 	if currentState == AttemptCompleted {
 		return Snapshot{}, conflict("MATCH_ATTEMPT_COMPLETION_CONFLICT", "The attempt already has a different terminal result.", nil)
+	}
+	if currentState == AttemptEnding {
+		if lifecyclePhase != string(LifecycleResultConfirmed) || authorityID == "" || authoritySession == "" {
+			return Snapshot{}, conflict("MATCH_RESULT_CONFIRMED", "The result-confirmed attempt cannot be force-aborted without a durable result scope.", nil)
+		}
+		// Reuse the authoritative two-phase completion path.  Rolling back
+		// this read lock first keeps the admin action from racing a second
+		// terminal transition while ensuring a confirmed result remains
+		// COMPLETED and the normal cleanup lease is started.
+		_ = tx.Rollback(context.WithoutCancel(ctx))
+		return s.Complete(ctx, authorityID, authoritySession, attemptID, false, failureCode)
 	}
 	if currentState != AttemptFrozen && currentState != AttemptProvisioning &&
 		currentState != AttemptConnecting && currentState != AttemptRunning {
@@ -2965,6 +3214,30 @@ func (s *Service) AdminForceAbort(
 		`, lobbyID, now); err != nil {
 			return Snapshot{}, internal(err)
 		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE p2p_room_members AS member
+			SET status = 'LEFT', left_at = COALESCE(member.left_at, $2)
+			FROM p2p_rooms AS room
+			WHERE room.managed_lobby_id = $1 AND member.room_id = room.id AND member.status = 'ACTIVE'
+		`, lobbyID, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE p2p_vnt_sessions AS session
+			SET state = 'CLOSED', updated_at = $2
+			FROM p2p_rooms AS room
+			WHERE room.managed_lobby_id = $1 AND session.room_id = room.id AND session.state <> 'CLOSED'
+		`, lobbyID, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE p2p_vnt_member_sessions AS member_session
+			SET state = 'STOPPED', last_report_at = $2
+			FROM p2p_rooms AS room
+			WHERE room.managed_lobby_id = $1 AND member_session.room_id = room.id AND member_session.state <> 'STOPPED'
+		`, lobbyID, now); err != nil {
+			return Snapshot{}, internal(err)
+		}
 	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE match_lobby_members SET presence_state = 'OFFLINE', ready = FALSE
@@ -2997,6 +3270,9 @@ func (s *Service) AdminForceAbort(
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Snapshot{}, internal(fmt.Errorf("commit administrative match abort: %w", err))
+	}
+	if hosting == string(HostingP2P) {
+		s.retryP2PTransportCleanup(ctx, lobbyID, attemptID)
 	}
 	return s.Get(ctx, lobbyID, "")
 }
@@ -3314,9 +3590,88 @@ func (s *Service) P2PNativeCleared(ctx context.Context, actor Actor, authoritySe
 		if err := validateP2PNativeCleanupEvidence(evidence[0]); err != nil {
 			return Snapshot{}, err
 		}
-		return s.nativeCleared(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, &evidence[0], HostingP2P)
+		return s.p2pNativeClearedAfterTransport(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, &evidence[0])
 	}
-	return s.nativeCleared(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, nil, HostingP2P)
+	return s.p2pNativeClearedAfterTransport(ctx, actor.PlayerID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, nil)
+}
+
+// p2pNativeClearedAfterTransport keeps the local/native acknowledgement
+// separate from transport cleanup.  The native process may have exited while
+// relay revoke or connection close is temporarily unavailable; in that case
+// retain native_cleared_at and cleanup=PENDING so a later retry can finish the
+// release without making the native owner repeat its one-shot receipt.
+func (s *Service) p2pNativeClearedAfterTransport(
+	ctx context.Context,
+	authorityID, authoritySession, attemptID, worldInstanceID string,
+	rosterRevision int64, routeGeneration int,
+	evidence *OwnedProcessExitEvidence,
+) (Snapshot, error) {
+	var lobbyID, storedWorld, cleanupState string
+	var storedRoster int64
+	var storedRoute int
+	var payloadInstalled, hostAuthority bool
+	err := s.repository.pool.QueryRow(ctx, `
+		SELECT attempt.lobby_id, attempt.cleanup_state,
+		       COALESCE(attempt.world_instance_id, ''), attempt.roster_revision,
+		       attempt.route_generation, attempt.payload_installed_at IS NOT NULL,
+		       EXISTS (
+			   SELECT 1 FROM match_attempt_roster AS host
+			   WHERE host.attempt_id = attempt.id
+			     AND host.player_id = $2 AND host.room_role = 'HOST'
+		       )
+		FROM match_attempts AS attempt
+		WHERE attempt.id = $1 AND attempt.authority_id = $2
+		  AND attempt.authority_session_id = $3
+		  AND attempt.hosting_kind = 'P2P'
+		  AND attempt.state IN ('COMPLETED', 'ABORTED')
+	`, attemptID, authorityID, authoritySession).Scan(
+		&lobbyID, &cleanupState, &storedWorld, &storedRoster, &storedRoute,
+		&payloadInstalled, &hostAuthority,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Let the shared terminal-scope validator produce the canonical
+			// error and scope checks for an unknown or stale receipt.
+			return s.nativeCleared(ctx, authorityID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, evidence, HostingP2P)
+		}
+		return Snapshot{}, internal(err)
+	}
+	// Validate the immutable receipt scope before touching the external room
+	// or relay. A valid authority session alone must not let a stale/wrong
+	// world receipt close the current managed transport.
+	if !hostAuthority {
+		return s.nativeCleared(ctx, authorityID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, evidence, HostingP2P)
+	}
+	// Keep the canonical cleanup scope errors used by the shared native
+	// acknowledgement path.  This preflight must happen before touching the
+	// managed room or relay, but it must not change the public error contract
+	// for stale receipts.
+	if storedWorld == "" {
+		if worldInstanceID != "" {
+			return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_REQUIRED", "The attempt has no persisted native world identity.", nil)
+		}
+	} else if storedWorld != worldInstanceID {
+		return Snapshot{}, conflict("MATCH_WORLD_INSTANCE_CONFLICT", "The cleanup acknowledgement belongs to a different world instance.", nil)
+	}
+	if storedRoster != rosterRevision {
+		return Snapshot{}, conflict("MATCH_ROSTER_REVISION_CONFLICT", "The cleanup acknowledgement belongs to a different frozen roster.", nil)
+	}
+	if storedRoute != routeGeneration {
+		return Snapshot{}, conflict("MATCH_ROUTE_GENERATION_STALE", "The cleanup acknowledgement belongs to a stale authority route.", nil)
+	}
+	if storedWorld == "" && evidence == nil {
+		return s.nativeCleared(ctx, authorityID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, evidence, HostingP2P)
+	}
+	if evidence != nil && evidence.EvidenceKind == "native_process_not_started" && (payloadInstalled || storedWorld != "") {
+		return s.nativeCleared(ctx, authorityID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, evidence, HostingP2P)
+	}
+	if cleanupState == "CLEARED" {
+		return s.nativeCleared(ctx, authorityID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, evidence, HostingP2P)
+	}
+	if err := s.performP2PTransportCleanup(ctx, lobbyID, "MATCH_NATIVE_CLEARED"); err != nil {
+		return s.observeP2PNativeClearedPending(ctx, authorityID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, evidence, err)
+	}
+	return s.nativeCleared(ctx, authorityID, authoritySession, attemptID, worldInstanceID, rosterRevision, routeGeneration, evidence, HostingP2P)
 }
 
 func (s *Service) compensateJoin(ctx context.Context, lobbyID, playerID string) error {

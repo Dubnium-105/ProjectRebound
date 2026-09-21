@@ -29,6 +29,7 @@
 #include "Replication/ListenResultPolicy.h"
 #include "ServerLogic/LateJoinManager.h"
 #include "ServerLogic/DedicatedMultiMatch.h"
+#include "ServerLogic/MatchLifecycle.h"
 #include "Communication/CommandFramework.h"
 #include "Admission/Ed25519Verifier.h"
 #include "Admission/StrictRosterAdmissionGate.h"
@@ -414,6 +415,7 @@ nlohmann::json BuildPayloadStatus()
             ? (payloadReady ? "ready" : "native_admission_unverified")
             : "game_binary_unverified"},
         {"protocol_version", kStrictRosterPayloadVersion},
+        {"match_lifecycle_version", std::string(MatchLifecycle::kProtocolVersion)},
         {"game_binary_sha256", gVerifiedExecutableHash},
         {"net_mode", NetModeName(netMode)},
         {"native_authority_path_ready", nativeAuthorityPath},
@@ -848,6 +850,199 @@ LoadoutBridgeOptions GetLoadoutBridgeOptions()
 std::string ReadStrictAuthorityWorldInstanceId()
 {
     return CurrentStrictAuthorityWorldInstanceId();
+}
+
+namespace
+{
+    struct MatchLifecycleNativeBinding
+    {
+        MatchLifecycle::Scope scope;
+        UWorld* world = nullptr;
+        UNetDriver* netDriver = nullptr;
+        APBGameMode* gameMode = nullptr;
+    };
+
+    std::mutex gMatchLifecycleBindingMutex;
+    std::optional<MatchLifecycleNativeBinding> gMatchLifecycleBinding;
+
+    bool IsCurrentMatchLifecycleScopeActive(const MatchLifecycle::Scope& scope)
+    {
+        if (gStrictAuthorityAwaitingWorldTeardown.load(std::memory_order_acquire) ||
+            !gStrictAuthorityServerStarted.load(std::memory_order_acquire))
+        {
+            return false;
+        }
+        const auto allocationScope = gStrictRosterPolicy.CurrentAllocationScope();
+        if (!allocationScope || allocationScope->attemptId != scope.attemptId ||
+            allocationScope->authoritySessionId != scope.authoritySessionId ||
+            allocationScope->rosterRevision != scope.rosterRevision ||
+            allocationScope->routeGeneration != scope.routeGeneration ||
+            CurrentStrictAuthorityWorldInstanceId() != scope.worldInstanceId ||
+            GetServerMatchGeneration() != scope.matchGeneration)
+        {
+            return false;
+        }
+        std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
+        return !(gStrictRosterCleanup.pending &&
+            gStrictRosterCleanup.attemptId == scope.attemptId &&
+            gStrictRosterCleanup.authoritySessionId == scope.authoritySessionId &&
+            gStrictRosterCleanup.worldInstanceId == scope.worldInstanceId &&
+            gStrictRosterCleanup.rosterRevision == scope.rosterRevision &&
+            gStrictRosterCleanup.routeGeneration == scope.routeGeneration);
+    }
+
+    std::optional<MatchLifecycle::Scope> BuildCurrentMatchLifecycleScope(
+        UWorld* world,
+        APBGameMode* expectedGameMode)
+    {
+        if (!world ||
+            (expectedGameMode && world->AuthorityGameMode != expectedGameMode) ||
+            gStrictAuthorityAwaitingWorldTeardown.load(std::memory_order_acquire) ||
+            !gStrictAuthorityServerStarted.load(std::memory_order_acquire))
+        {
+            return std::nullopt;
+        }
+
+        const auto allocationScope = gStrictRosterPolicy.CurrentAllocationScope();
+        const std::string worldInstanceId = CurrentStrictAuthorityWorldInstanceId();
+        const std::uint64_t matchGeneration = GetServerMatchGeneration();
+        if (!allocationScope || worldInstanceId.empty() || matchGeneration == 0)
+            return std::nullopt;
+
+        MatchLifecycle::Scope scope{
+            allocationScope->attemptId,
+            allocationScope->authoritySessionId,
+            worldInstanceId,
+            allocationScope->rosterRevision,
+            allocationScope->routeGeneration,
+            matchGeneration};
+        if (!scope.IsValid())
+            return std::nullopt;
+
+        if (!IsCurrentMatchLifecycleScopeActive(scope))
+            return std::nullopt;
+        return scope;
+    }
+
+    std::optional<MatchLifecycleNativeBinding> CurrentMatchLifecycleBinding(
+        APBGameMode* expectedGameMode)
+    {
+        std::lock_guard<std::mutex> lock(gMatchLifecycleBindingMutex);
+        if (!gMatchLifecycleBinding ||
+            (expectedGameMode && gMatchLifecycleBinding->gameMode != expectedGameMode))
+        {
+            return std::nullopt;
+        }
+        return gMatchLifecycleBinding;
+    }
+}
+
+void MatchLifecycleCaptureResultWorld(APBGameMode* gameMode)
+{
+    if (DedicatedMultiMatch::IsEnabled())
+        return;
+    UWorld* const world = UWorld::GetWorld();
+    if (!world || !world->NetDriver)
+        return;
+    const auto scope = BuildCurrentMatchLifecycleScope(world, gameMode);
+    if (!scope)
+        return;
+    std::lock_guard<std::mutex> lock(gMatchLifecycleBindingMutex);
+    gMatchLifecycleBinding = MatchLifecycleNativeBinding{
+        *scope, world, world->NetDriver, gameMode};
+}
+
+void MatchLifecycleOnResultFrozen(APBGameMode* gameMode)
+{
+    if (DedicatedMultiMatch::IsEnabled())
+        return;
+    const auto binding = CurrentMatchLifecycleBinding(gameMode);
+    if (binding && IsCurrentMatchLifecycleScopeActive(binding->scope))
+        (void)MatchLifecycle::NativeOutbox().MarkResultFrozen(binding->scope);
+}
+
+void MatchLifecycleOnResultConfirmed(APBGameMode* gameMode)
+{
+    if (DedicatedMultiMatch::IsEnabled())
+        return;
+    const auto binding = CurrentMatchLifecycleBinding(gameMode);
+    if (binding && IsCurrentMatchLifecycleScopeActive(binding->scope))
+        (void)MatchLifecycle::NativeOutbox().ConfirmResult(binding->scope);
+}
+
+void MatchLifecycleArmReturnToMenu(APBGameMode* gameMode)
+{
+    if (DedicatedMultiMatch::IsEnabled())
+        return;
+    const auto binding = CurrentMatchLifecycleBinding(gameMode);
+    if (binding && IsCurrentMatchLifecycleScopeActive(binding->scope))
+        (void)MatchLifecycle::NativeOutbox().ArmReturn(binding->scope);
+}
+
+void MatchLifecycleReturnToMenuNotified(APBGameMode* gameMode)
+{
+    if (DedicatedMultiMatch::IsEnabled())
+        return;
+    const auto binding = CurrentMatchLifecycleBinding(gameMode);
+    if (binding && IsCurrentMatchLifecycleScopeActive(binding->scope))
+        (void)MatchLifecycle::NativeOutbox().ReturnNotificationCompleted(binding->scope);
+}
+
+void MatchLifecycleOnNetworkFlush(UWorld* world, UNetDriver* netDriver)
+{
+    if (!netDriver || DedicatedMultiMatch::IsEnabled())
+    {
+        return;
+    }
+    const auto binding = CurrentMatchLifecycleBinding(nullptr);
+    const bool worldProvided = world != nullptr;
+    const bool worldMatchesBinding = !worldProvided ||
+        (binding && world == binding->world);
+    const bool hookDriverMatchesBinding = binding && binding->netDriver == netDriver;
+    const bool worldDriverPresent = worldProvided && world->NetDriver != nullptr;
+    const bool worldDriverMatchesBinding = !worldDriverPresent ||
+        (binding && world->NetDriver == binding->netDriver);
+    if (!binding || !MatchLifecycle::IsNetworkFlushBindingValid(
+            worldProvided, worldMatchesBinding, hookDriverMatchesBinding,
+            worldDriverPresent, worldDriverMatchesBinding) ||
+        !IsCurrentMatchLifecycleScopeActive(binding->scope))
+    {
+        return;
+    }
+    (void)MatchLifecycle::NativeOutbox().NetworkFlushCompleted(binding->scope);
+}
+
+float MatchLifecycleFinalCleanupWait(APBGameMode* gameMode, float requestedSeconds)
+{
+    if (DedicatedMultiMatch::IsEnabled())
+        return requestedSeconds;
+    const auto binding = CurrentMatchLifecycleBinding(gameMode);
+    if (!binding || !IsCurrentMatchLifecycleScopeActive(binding->scope))
+        return requestedSeconds;
+    return MatchLifecycle::NativeOutbox().FinalCleanupWait(
+        binding->scope, requestedSeconds);
+}
+
+void MatchLifecycleCancelProductionAllocationScope(
+    const std::string& attemptId,
+    const std::string& authoritySessionId,
+    const std::string& worldInstanceId,
+    const std::int64_t rosterRevision,
+    const int routeGeneration)
+{
+    MatchLifecycle::NativeOutbox().CancelProductionAllocationScope(
+        attemptId, authoritySessionId, worldInstanceId,
+        rosterRevision, routeGeneration);
+    std::lock_guard<std::mutex> lock(gMatchLifecycleBindingMutex);
+    if (gMatchLifecycleBinding &&
+        gMatchLifecycleBinding->scope.attemptId == attemptId &&
+        gMatchLifecycleBinding->scope.authoritySessionId == authoritySessionId &&
+        gMatchLifecycleBinding->scope.worldInstanceId == worldInstanceId &&
+        gMatchLifecycleBinding->scope.rosterRevision == rosterRevision &&
+        gMatchLifecycleBinding->scope.routeGeneration == routeGeneration)
+    {
+        gMatchLifecycleBinding.reset();
+    }
 }
 
 namespace
@@ -2606,6 +2801,9 @@ nlohmann::json ProcessStrictRosterClearMatchAllocationResultInternal(
             }
             else
             {
+                MatchLifecycleCancelProductionAllocationScope(
+                    attemptId, authoritySessionId, worldInstanceId,
+                    rosterRevision, routeGeneration);
                 const StrictRosterNativeTeardownRequestResult teardownResult =
                     RequestScopedStrictRosterWorldTeardown(cleanup);
                 const bool requested = teardownResult !=
@@ -2636,6 +2834,9 @@ nlohmann::json ProcessStrictRosterClearMatchAllocationResultInternal(
         }
 
         cleanup = capturedCleanup;
+        MatchLifecycleCancelProductionAllocationScope(
+            attemptId, authoritySessionId, worldInstanceId,
+            rosterRevision, routeGeneration);
         {
             std::lock_guard<std::mutex> lock(gStrictRosterCleanupMutex);
             gStrictRosterCleanup = cleanup;
@@ -2722,6 +2923,12 @@ bool StartServerCommandFramework()
     framework->SetMatchJoinGrantCallback(OnInstallMatchJoinGrant);
     framework->SetMatchAuthorityCallback(OnStartMatchAuthority);
     framework->SetMatchConnectionEventsCallback(OnMatchConnectionEvents);
+    framework->SetMatchLifecycleEventsCallback([](const nlohmann::json&) {
+        return MatchLifecycle::NativeOutbox().Poll();
+    });
+    framework->SetMatchLifecycleAckCallback([](const nlohmann::json& arguments) {
+        return MatchLifecycle::NativeOutbox().Ack(arguments);
+    });
     framework->SetMatchClearResultCallback(OnClearMatchAllocationResult);
     framework->SetPayloadStatusCallback(BuildPayloadStatus);
     framework->SetMatchCancelCallback(CancelPendingClientTransition);
@@ -3203,6 +3410,12 @@ void MainThread()
                 framework->SetMatchAllocationCallback(OnInstallMatchAllocation);
                 framework->SetMatchJoinGrantCallback(OnInstallMatchJoinGrant);
                 framework->SetMatchAuthorityCallback(OnStartMatchAuthority);
+                framework->SetMatchLifecycleEventsCallback([](const nlohmann::json&) {
+                    return MatchLifecycle::NativeOutbox().Poll();
+                });
+                framework->SetMatchLifecycleAckCallback([](const nlohmann::json& arguments) {
+                    return MatchLifecycle::NativeOutbox().Ack(arguments);
+                });
                 framework->SetMatchClearResultCallback(OnClearMatchAllocationResult);
                 framework->SetPayloadStatusCallback(BuildPayloadStatus);
                 framework->SetMatchCancelCallback(CancelPendingClientTransition);

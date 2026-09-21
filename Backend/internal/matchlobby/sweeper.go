@@ -422,5 +422,84 @@ func (s *Service) Sweep(ctx context.Context) error {
 			return err
 		}
 	}
-	return tx.Commit(ctx)
+
+	// RESULT_CONFIRMED intentionally keeps the authoritative transport alive
+	// during the result/return window.  If the native RETURN_READY event never
+	// arrives, the ending deadline is the only timeout that may finalize the
+	// already-known result.  Complete(false, warning) converts this path to a
+	// successful terminal result while retaining the process-loss warning and
+	// normal cleanup lease.
+	endingRows, err := tx.Query(ctx, `
+		SELECT id, COALESCE(authority_id, ''), COALESCE(authority_session_id, '')
+		FROM match_attempts
+		WHERE state = 'ENDING' AND ending_deadline IS NOT NULL
+		  AND ending_deadline <= $1
+		FOR UPDATE
+	`, now)
+	if err != nil {
+		return err
+	}
+	type endingAttempt struct{ id, authorityID, authoritySession string }
+	var ending []endingAttempt
+	for endingRows.Next() {
+		var item endingAttempt
+		if err := endingRows.Scan(&item.id, &item.authorityID, &item.authoritySession); err != nil {
+			endingRows.Close()
+			return err
+		}
+		ending = append(ending, item)
+	}
+	if err := endingRows.Err(); err != nil {
+		endingRows.Close()
+		return err
+	}
+	endingRows.Close()
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	for _, item := range ending {
+		if item.authorityID == "" || item.authoritySession == "" {
+			continue
+		}
+		if _, err := s.Complete(ctx, item.authorityID, item.authoritySession, item.id, false, "MATCH_ENDING_TIMEOUT"); err != nil {
+			// A concurrent RETURN_READY may have completed the attempt between
+			// the sweep commit and this call. Complete is idempotent for that
+			// terminal success; leave any other error visible to the sweeper.
+			_, code, _, _ := errorDetails(err)
+			if code != "MATCH_ATTEMPT_COMPLETION_CONFLICT" {
+				return err
+			}
+		}
+	}
+	if err := s.retryPendingP2PTransportCleanup(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+// retryPendingP2PTransportCleanup replays the external transport close and
+// relay-revoke side effects independently of the native acknowledgement.  A
+// failed relay publisher or a process restart must not leave a terminal P2P
+// attempt permanently holding a connection resource.
+func (s *Service) retryPendingP2PTransportCleanup(ctx context.Context) error {
+	rows, err := s.repository.pool.Query(ctx, `
+		SELECT id, lobby_id
+		FROM match_attempts
+		WHERE hosting_kind = 'P2P'
+		  AND state IN ('COMPLETED', 'ABORTED')
+		  AND cleanup_state = 'PENDING'
+		ORDER BY completed_at NULLS LAST, id
+	`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var attemptID, lobbyID string
+		if err := rows.Scan(&attemptID, &lobbyID); err != nil {
+			return err
+		}
+		s.retryP2PTransportCleanup(ctx, lobbyID, attemptID)
+	}
+	return rows.Err()
 }

@@ -57,6 +57,22 @@ type State string
 type AttemptState string
 type TransportKind string
 
+type LifecyclePhase string
+
+const (
+	LifecycleResultConfirmed LifecyclePhase = "RESULT_CONFIRMED"
+	LifecycleReturnReady     LifecyclePhase = "RETURN_READY"
+)
+
+type LifecycleInput struct {
+	Phase           LifecyclePhase `json:"phase"`
+	WorldInstanceID string         `json:"world_instance_id"`
+	RosterRevision  int64          `json:"roster_revision"`
+	RouteGeneration int            `json:"route_generation"`
+	MatchGeneration int            `json:"match_generation"`
+	EventSeq        int64          `json:"event_seq"`
+}
+
 const (
 	HostingDedicated HostingKind = "DEDICATED"
 	HostingP2P       HostingKind = "P2P"
@@ -69,6 +85,7 @@ const (
 	StateProvisioning State = "PROVISIONING"
 	StateConnecting   State = "CONNECTING"
 	StateRunning      State = "RUNNING"
+	StateEnding       State = "ENDING"
 	StateCompleted    State = "COMPLETED"
 	StateAborted      State = "ABORTED"
 
@@ -76,6 +93,7 @@ const (
 	AttemptProvisioning AttemptState = "PROVISIONING"
 	AttemptConnecting   AttemptState = "CONNECTING"
 	AttemptRunning      AttemptState = "RUNNING"
+	AttemptEnding       AttemptState = "ENDING"
 	AttemptCompleted    AttemptState = "COMPLETED"
 	AttemptAborted      AttemptState = "ABORTED"
 )
@@ -155,6 +173,13 @@ type AttemptView struct {
 	NativeClearedAt    *time.Time   `json:"native_cleared_at,omitempty"`
 	CleanupError       string       `json:"cleanup_error,omitempty"`
 	WorldInstanceID    string       `json:"world_instance_id,omitempty"`
+	MatchGeneration    int          `json:"match_generation"`
+	LifecyclePhase     string       `json:"lifecycle_phase,omitempty"`
+	LifecycleEventSeq  int64        `json:"lifecycle_event_seq"`
+	ResultConfirmedAt  *time.Time   `json:"result_confirmed_at,omitempty"`
+	ReturnReadyAt      *time.Time   `json:"return_ready_at,omitempty"`
+	EndingDeadline     *time.Time   `json:"ending_deadline,omitempty"`
+	CompletionWarning  string       `json:"completion_warning,omitempty"`
 }
 
 type Snapshot struct {

@@ -32,6 +32,7 @@ public:
     using MatchJoinGrantCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
     using MatchAuthorityCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
     using MatchConnectionEventsCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
+    using MatchLifecycleCallback = std::function<nlohmann::json(const nlohmann::json& arguments)>;
     using MatchClearCallback = std::function<void()>;
     // A clear is scoped to the allocation/world that requested it.  Keeping
     // the arguments on this callback prevents a delayed pipe frame from
@@ -62,6 +63,8 @@ public:
     void SetMatchJoinGrantCallback(MatchJoinGrantCallback callback);
     void SetMatchAuthorityCallback(MatchAuthorityCallback callback);
     void SetMatchConnectionEventsCallback(MatchConnectionEventsCallback callback);
+    void SetMatchLifecycleEventsCallback(MatchLifecycleCallback callback);
+    void SetMatchLifecycleAckCallback(MatchLifecycleCallback callback);
     void SetMatchClearCallback(MatchClearCallback callback);
     void SetMatchClearResultCallback(MatchClearResultCallback callback);
     void SetPayloadStatusCallback(PayloadStatusCallback callback);
@@ -197,6 +200,8 @@ private:
     MatchJoinGrantCallback onMatchJoinGrant;
     MatchAuthorityCallback onMatchAuthority;
     MatchConnectionEventsCallback onMatchConnectionEvents;
+    MatchLifecycleCallback onMatchLifecycleEvents;
+    MatchLifecycleCallback onMatchLifecycleAck;
     MatchClearCallback onMatchClear;
     MatchClearResultCallback onMatchClearResult;
     PayloadStatusCallback onPayloadStatus;

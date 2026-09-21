@@ -272,7 +272,7 @@ func (s *Service) Heartbeat(ctx context.Context, serverID, serverToken string, i
 		// attempt. A Payload heartbeat that still reports READY during
 		// provisioning must never make the node allocatable a second time.
 		reportedState = StateReserved
-		if assignment.State == "RUNNING" {
+		if assignment.State == "RUNNING" || assignment.State == "ENDING" {
 			reportedState = StateRunning
 		}
 	}

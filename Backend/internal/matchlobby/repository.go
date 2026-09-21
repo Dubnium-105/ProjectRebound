@@ -52,7 +52,7 @@ func (r *Repository) TransportScope(ctx context.Context, attemptID, playerID str
 		  ON roster.attempt_id = attempt.id
 		 AND roster.player_id = $2
 		WHERE attempt.id = $1
-		  AND attempt.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING')
+		  AND attempt.state IN ('PROVISIONING', 'CONNECTING', 'RUNNING', 'ENDING')
 	`, attemptID, playerID).Scan(
 		&scope.AttemptID, &scope.LobbyID, &scope.RoomID, &scope.HostingKind,
 		&scope.TransportKind, &scope.RosterRevision, &scope.RouteGeneration,
@@ -79,7 +79,7 @@ func (r *Repository) ActiveLobbyForPlayer(ctx context.Context, tx pgx.Tx, player
 		JOIN match_lobbies AS lobby ON lobby.id = member.lobby_id
 		WHERE member.player_id = $1 AND member.membership_state = 'ACTIVE'
 		  AND lobby.id <> $2
-		  AND lobby.state IN ('OPEN', 'FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING')
+		  AND lobby.state IN ('OPEN', 'FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING', 'ENDING')
 		ORDER BY lobby.created_at
 		LIMIT 1
 	`, playerID, exceptLobbyID).Scan(&lobbyID)
@@ -93,7 +93,7 @@ func (r *Repository) ActiveLobbyID(ctx context.Context, playerID string) (string
 		FROM match_lobby_members AS member
 		JOIN match_lobbies AS lobby ON lobby.id = member.lobby_id
 		WHERE member.player_id = $1 AND member.membership_state = 'ACTIVE'
-		  AND lobby.state IN ('OPEN', 'FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING')
+		  AND lobby.state IN ('OPEN', 'FROZEN', 'PROVISIONING', 'CONNECTING', 'RUNNING', 'ENDING')
 		ORDER BY lobby.created_at
 		LIMIT 1
 	`, playerID).Scan(&lobbyID)
@@ -358,7 +358,7 @@ func (r *Repository) MemberConnectionEvidence(ctx context.Context, attemptID, pl
 		) AS admission ON TRUE
 		WHERE attempt.id = $1
 		  AND lobby.current_attempt_id = attempt.id
-		  AND attempt.state IN ('CONNECTING', 'RUNNING')
+		  AND attempt.state IN ('CONNECTING', 'RUNNING', 'ENDING')
 		  AND attempt.payload_route_generation = attempt.route_generation
 		  AND attempt.authority_session_id <> ''
 		  AND COALESCE(attempt.world_instance_id, '') <> ''
@@ -432,7 +432,7 @@ func (r *Repository) List(ctx context.Context, filter ListFilter) (ListResult, e
 
 func (r *Repository) getAttempt(ctx context.Context, attemptID string) (AttemptView, error) {
 	var item AttemptView
-	var deadline, cleanupRequestedAt, nativeClearedAt sql.NullTime
+	var deadline, cleanupRequestedAt, nativeClearedAt, resultConfirmedAt, returnReadyAt, endingDeadline sql.NullTime
 	err := r.pool.QueryRow(ctx, `
 		SELECT id, attempt_number, state, roster_revision,
 		       route_generation, COALESCE(endpoint_host, ''), COALESCE(endpoint_port, 0),
@@ -440,14 +440,20 @@ func (r *Repository) getAttempt(ctx context.Context, attemptID string) (AttemptV
 		         AND payload_route_generation = route_generation, FALSE),
 		       connection_deadline, COALESCE(failure_code, ''),
 		       cleanup_state, cleanup_requested_at, native_cleared_at,
-		       COALESCE(cleanup_error, ''), COALESCE(world_instance_id, '')
+		       COALESCE(cleanup_error, ''), COALESCE(world_instance_id, ''),
+		       match_generation, lifecycle_phase, lifecycle_event_seq,
+		       result_confirmed_at, return_ready_at, ending_deadline,
+		       COALESCE(completion_warning, '')
 		FROM match_attempts WHERE id = $1
 	`, attemptID).Scan(
 		&item.AttemptID, &item.AttemptNumber, &item.State, &item.RosterRevision,
 		&item.RouteGeneration, &item.EndpointHost, &item.EndpointPort,
 		&item.PayloadInstalled, &deadline, &item.FailureCode,
 		&item.CleanupState, &cleanupRequestedAt, &nativeClearedAt,
-		&item.CleanupError, &item.WorldInstanceID,
+		&item.CleanupError, &item.WorldInstanceID, &item.MatchGeneration,
+		&item.LifecyclePhase, &item.LifecycleEventSeq,
+		&resultConfirmedAt, &returnReadyAt, &endingDeadline,
+		&item.CompletionWarning,
 	)
 	if deadline.Valid {
 		item.ConnectionDeadline = &deadline.Time
@@ -457,6 +463,15 @@ func (r *Repository) getAttempt(ctx context.Context, attemptID string) (AttemptV
 	}
 	if nativeClearedAt.Valid {
 		item.NativeClearedAt = &nativeClearedAt.Time
+	}
+	if resultConfirmedAt.Valid {
+		item.ResultConfirmedAt = &resultConfirmedAt.Time
+	}
+	if returnReadyAt.Valid {
+		item.ReturnReadyAt = &returnReadyAt.Time
+	}
+	if endingDeadline.Valid {
+		item.EndingDeadline = &endingDeadline.Time
 	}
 	return item, err
 }

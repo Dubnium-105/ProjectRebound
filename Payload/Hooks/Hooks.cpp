@@ -2666,6 +2666,7 @@ void TickFlushHook(UNetDriver *NetDriver, float DeltaTime)
     // handler from the pre-flush half of this detour can migrate channels while
     // the driver is still on its own flush stack and strand the game thread.
     TickFlush.call(NetDriver, DeltaTime);
+    MatchLifecycleOnNetworkFlush(UWorld::GetWorld(), NetDriver);
     UWorld* const postFlushWorld = UWorld::GetWorld();
     APBGameMode* const postFlushGameMode = postFlushWorld &&
             postFlushWorld->AuthorityGameMode
@@ -2781,7 +2782,9 @@ void ServerEndMatchHook(APBGameMode* gameMode)
                   << std::endl;
         return;
     }
+    MatchLifecycleCaptureResultWorld(gameMode);
     ServerEndMatch.call<void>(gameMode);
+    MatchLifecycleOnResultFrozen(gameMode);
 }
 
 void ServerNullResultMvpHook(SafetyHookContext& context)
@@ -2890,6 +2893,7 @@ void ServerStartShowingMatchResultHook(APBGameMode* gameMode)
 {
     ServerStartShowingMatchResult.call<void>(gameMode);
     DedicatedMultiMatch::OnShowingMatchResult(gameMode);
+    MatchLifecycleOnResultConfirmed(gameMode);
 }
 
 void ServerStartWaitingToEndGameHook(APBGameMode* gameMode)
@@ -2897,6 +2901,7 @@ void ServerStartWaitingToEndGameHook(APBGameMode* gameMode)
     if (DedicatedMultiMatch::HandleWaitingToEndGame(gameMode))
         return;
 
+    MatchLifecycleArmReturnToMenu(gameMode);
     BeginGracefulDedicatedExit(gameMode, "process-per-match");
 }
 
@@ -2909,7 +2914,8 @@ void ServerBeginFinalCleanupHook(APBGameMode* gameMode, float cleanupWait)
         return;
     }
 
-    ServerBeginFinalCleanup.call<void>(gameMode, cleanupWait);
+    ServerBeginFinalCleanup.call<void>(
+        gameMode, MatchLifecycleFinalCleanupWait(gameMode, cleanupWait));
 }
 
 bool NotifyActorDestroyedHook(UWorld *World, AActor *Actor, bool SomeShit, bool SomeShit2)

@@ -209,6 +209,7 @@ type MatchLobbyConfig struct {
 	ProvisioningSeconds       int    `yaml:"provisioning_seconds"`
 	InitialConnectionSeconds  int    `yaml:"initial_connection_seconds"`
 	P2PHostReconnectSeconds   int    `yaml:"p2p_host_reconnect_seconds"`
+	EndingSeconds             int    `yaml:"ending_seconds"`
 	AdmissionGrantTTLSeconds  int    `yaml:"admission_grant_ttl_seconds"`
 	SweepIntervalSeconds      int    `yaml:"sweep_interval_seconds"`
 	AdmissionSigningKeyID     string `yaml:"admission_signing_key_id"`
@@ -444,6 +445,7 @@ var Defaults = Config{
 		ProvisioningSeconds:      120,
 		InitialConnectionSeconds: 120,
 		P2PHostReconnectSeconds:  120,
+		EndingSeconds:            120,
 		AdmissionGrantTTLSeconds: 60,
 		SweepIntervalSeconds:     5,
 		AdmissionSigningKeyID:    "match-admission-control-plane-v1",
@@ -615,6 +617,7 @@ func (c *Config) applyEnvOverrides() {
 	overrideInt("MATCH_LOBBY_PROVISIONING_SECONDS", &c.MatchLobby.ProvisioningSeconds)
 	overrideInt("MATCH_LOBBY_INITIAL_CONNECTION_SECONDS", &c.MatchLobby.InitialConnectionSeconds)
 	overrideInt("MATCH_LOBBY_P2P_HOST_RECONNECT_SECONDS", &c.MatchLobby.P2PHostReconnectSeconds)
+	overrideInt("MATCH_LOBBY_ENDING_SECONDS", &c.MatchLobby.EndingSeconds)
 	overrideInt("MATCH_ADMISSION_GRANT_TTL_SECONDS", &c.MatchLobby.AdmissionGrantTTLSeconds)
 	overrideInt("MATCH_LOBBY_SWEEP_INTERVAL_SECONDS", &c.MatchLobby.SweepIntervalSeconds)
 	overrideString("MATCH_ADMISSION_SIGNING_KEY_ID", &c.MatchLobby.AdmissionSigningKeyID)
@@ -924,6 +927,7 @@ func (c *Config) ValidateControlPlane() error {
 		c.MatchLobby.ProvisioningSeconds < 30 ||
 		c.MatchLobby.InitialConnectionSeconds < 30 ||
 		c.MatchLobby.P2PHostReconnectSeconds < 30 ||
+		c.MatchLobby.EndingSeconds < 30 ||
 		c.MatchLobby.AdmissionGrantTTLSeconds < 15 ||
 		c.MatchLobby.AdmissionGrantTTLSeconds > c.MatchLobby.InitialConnectionSeconds ||
 		c.MatchLobby.SweepIntervalSeconds < 1 ||

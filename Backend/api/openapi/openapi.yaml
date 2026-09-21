@@ -2933,6 +2933,20 @@ paths:
       responses:
         "200": {description: Authority continuity heartbeat accepted}
         "403": {$ref: "#/components/responses/Forbidden"}
+  /v1/match-attempts/{attempt_id}/host/lifecycle:
+    post:
+      operationId: reportP2PMatchLifecycle
+      tags: [Match Admission]
+      security: [{playerAccessToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchLifecycleRequest"}}}
+      responses:
+        "200": {description: Lifecycle phase recorded, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/match-attempts/{attempt_id}/host/complete:
     post:
       operationId: completeP2PMatchAttempt
@@ -3110,6 +3124,26 @@ paths:
         - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
       responses:
         "200": {description: Authority heartbeat accepted}
+  /v1/game-servers/{server_id}/match-attempts/{attempt_id}/lifecycle:
+    post:
+      operationId: reportDedicatedMatchLifecycle
+      tags: [Match Admission]
+      x-internal: true
+      security: [{gameServerToken: [], gameServerSignature: []}]
+      parameters:
+        - {$ref: "#/components/parameters/GameServerID"}
+        - {$ref: "#/components/parameters/MatchAttemptID"}
+        - {$ref: "#/components/parameters/MatchAuthoritySession"}
+        - {$ref: "#/components/parameters/GameServerCertificateFingerprint"}
+        - {$ref: "#/components/parameters/GameServerRequestTimestamp"}
+        - {$ref: "#/components/parameters/GameServerRequestNonce"}
+        - {$ref: "#/components/parameters/GameServerCredentialGeneration"}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/MatchLifecycleRequest"}}}
+      responses:
+        "200": {description: Lifecycle phase recorded, content: {application/json: {schema: {$ref: "#/components/schemas/MatchLobbyResponse"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
   /v1/game-servers/{server_id}/match-attempts/{attempt_id}/complete:
     post:
       operationId: completeDedicatedMatchAttempt
@@ -6992,10 +7026,10 @@ components:
       enum: [LEGACY_RELAY, VNT]
     MatchLobbyState:
       type: string
-      enum: [OPEN, FROZEN, PROVISIONING, CONNECTING, RUNNING, COMPLETED, ABORTED]
+      enum: [OPEN, FROZEN, PROVISIONING, CONNECTING, RUNNING, ENDING, COMPLETED, ABORTED]
     MatchAttemptState:
       type: string
-      enum: [FROZEN, PROVISIONING, CONNECTING, RUNNING, COMPLETED, ABORTED]
+      enum: [FROZEN, PROVISIONING, CONNECTING, RUNNING, ENDING, COMPLETED, ABORTED]
     MatchCleanupState:
       type: string
       enum: [CLEARED, PENDING]
@@ -7110,6 +7144,13 @@ components:
         native_cleared_at: {type: string, format: date-time}
         cleanup_error: {type: string}
         world_instance_id: {type: string}
+        match_generation: {type: integer, minimum: 1}
+        lifecycle_phase: {type: string, enum: [RESULT_CONFIRMED, RETURN_READY]}
+        lifecycle_event_seq: {type: integer, format: int64, minimum: 0}
+        result_confirmed_at: {type: string, format: date-time}
+        return_ready_at: {type: string, format: date-time}
+        ending_deadline: {type: string, format: date-time}
+        completion_warning: {type: string}
         endpoint_host: {type: string}
         endpoint_port: {type: integer, minimum: 1, maximum: 65535}
         connection_deadline: {type: string, format: date-time}
@@ -7370,6 +7411,17 @@ components:
       properties:
         success: {type: boolean}
         failure_code: {type: string, maxLength: 64}
+    MatchLifecycleRequest:
+      type: object
+      additionalProperties: false
+      required: [phase, world_instance_id, roster_revision, route_generation, match_generation, event_seq]
+      properties:
+        phase: {type: string, enum: [RESULT_CONFIRMED, RETURN_READY]}
+        world_instance_id: {type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}
+        roster_revision: {type: integer, format: int64, minimum: 1}
+        route_generation: {type: integer, minimum: 1}
+        match_generation: {type: integer, minimum: 1}
+        event_seq: {type: integer, format: int64, minimum: 1}
     MatchNativeClearedRequest:
       type: object
       additionalProperties: false
