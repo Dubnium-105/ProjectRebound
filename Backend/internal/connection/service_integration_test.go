@@ -195,11 +195,36 @@ func TestConnectionLifecycleAgainstPostgreSQL(t *testing.T) {
 	if runningRoom.State == p2proom.StateRunning {
 		t.Fatalf("managed connected room was incorrectly promoted to RUNNING: %#v", runningRoom)
 	}
-	closed, err := service.Close(ctx, host, connection.ID)
-	if err != nil || closed.State != StateClosed {
-		t.Fatalf("close = %#v, %v", closed, err)
+	// The database close commits before relay revocation completes. A pending
+	// revoke must be surfaced as a typed dependency error while the close event
+	// is published exactly once; retrying the idempotent close only retries the
+	// relay operation and must not publish a duplicate event.
+	closeHostEvents := hub.Subscribe(host.PlayerID)
+	defer closeHostEvents.Close()
+	closePeerEvents := hub.Subscribe(peer.PlayerID)
+	defer closePeerEvents.Close()
+	relayAllocator := &integrationRelayAllocator{revokeErrors: []error{detailedDependencyError{}}}
+	service.SetRelayAllocator(relayAllocator)
+	closed, closeErr := service.Close(ctx, host, connection.ID)
+	if closed.State != StateClosed || connectionErrorCode(closeErr) != "RELAY_ALLOCATION_REVOKE_PENDING" {
+		t.Fatalf("pending close = %#v, %v", closed, closeErr)
 	}
+	assertEventType(t, closeHostEvents, "connection.closed")
+	assertEventType(t, closePeerEvents, "connection.closed")
+	assertNoEvent(t, closeHostEvents)
+	assertNoEvent(t, closePeerEvents)
 
+	closedRetry, closeErr := service.Close(ctx, host, connection.ID)
+	if closeErr != nil || closedRetry.State != StateClosed {
+		t.Fatalf("close retry = %#v, %v", closedRetry, closeErr)
+	}
+	if relayAllocator.revokeCalls != 2 {
+		t.Fatalf("relay revoke calls = %d, want 2", relayAllocator.revokeCalls)
+	}
+	assertNoEvent(t, closeHostEvents)
+	assertNoEvent(t, closePeerEvents)
+
+	service.SetRelayAllocator(nil)
 	relayFallback, err := service.Create(ctx, peer, CreateInput{RoomID: room.ID})
 	if err != nil || relayFallback.ID == connection.ID {
 		t.Fatalf("replacement connection = %#v, %v", relayFallback, err)
@@ -397,6 +422,34 @@ func assertEventType(t *testing.T, subscription *Subscription, eventType string)
 		t.Fatalf("event %s was not delivered", eventType)
 	}
 	return Event{}
+}
+
+func assertNoEvent(t *testing.T, subscription *Subscription) {
+	t.Helper()
+	select {
+	case event := <-subscription.Events():
+		t.Fatalf("unexpected event %s", event.Type)
+	default:
+	}
+}
+
+type integrationRelayAllocator struct {
+	revokeErrors []error
+	revokeCalls  int
+}
+
+func (a *integrationRelayAllocator) AllocateRelay(context.Context, RelayAllocationRequest) (RelayAllocation, error) {
+	return RelayAllocation{}, nil
+}
+
+func (a *integrationRelayAllocator) RevokeRelay(context.Context, string, string) error {
+	a.revokeCalls++
+	if len(a.revokeErrors) == 0 {
+		return nil
+	}
+	err := a.revokeErrors[0]
+	a.revokeErrors = a.revokeErrors[1:]
+	return err
 }
 
 func connectionErrorCode(err error) string {

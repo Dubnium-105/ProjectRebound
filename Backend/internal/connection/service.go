@@ -117,15 +117,18 @@ func (s *Service) CloseForRoom(ctx context.Context, roomID, reason string) error
 	if err != nil {
 		return err
 	}
+	var firstErr error
 	for _, item := range items {
+		s.publish(item, Event{Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC()})
 		if s.relayAllocator != nil {
 			if err := s.relayAllocator.RevokeRelay(ctx, item.ID, reason); err != nil {
-				return err
+				if firstErr == nil {
+					firstErr = mapDependencyError(err)
+				}
 			}
 		}
-		s.publish(item, Event{Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC()})
 	}
-	return nil
+	return firstErr
 }
 
 func (s *Service) CloseForRoomMember(ctx context.Context, roomID, playerID, reason string) error {
@@ -139,29 +142,32 @@ func (s *Service) CloseForRoomMember(ctx context.Context, roomID, playerID, reas
 	if err != nil {
 		return err
 	}
+	var firstErr error
 	for _, item := range items {
+		s.publish(item, Event{Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC()})
 		if s.relayAllocator != nil {
 			if err := s.relayAllocator.RevokeRelay(ctx, item.ID, reason); err != nil {
-				return err
+				if firstErr == nil {
+					firstErr = mapDependencyError(err)
+				}
 			}
 		}
-		s.publish(item, Event{Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC()})
 	}
-	return nil
+	return firstErr
 }
 
 // FinalizeAdministrativeClose performs the non-transactional side effects after
 // the administrator service has atomically closed a connection and written its
 // audit record in the database.
 func (s *Service) FinalizeAdministrativeClose(ctx context.Context, item Connection, reason string) error {
-	if s.relayAllocator != nil {
-		if err := s.relayAllocator.RevokeRelay(ctx, item.ID, reason); err != nil {
-			return err
-		}
-	}
 	s.publish(item, Event{
 		Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC(),
 	})
+	if s.relayAllocator != nil {
+		if err := s.relayAllocator.RevokeRelay(ctx, item.ID, reason); err != nil {
+			return mapDependencyError(err)
+		}
+	}
 	return nil
 }
 
@@ -335,13 +341,13 @@ func (s *Service) Close(ctx context.Context, actor Actor, connectionID string) (
 	if err := tx.Commit(ctx); err != nil {
 		return Connection{}, internal(err)
 	}
-	if s.relayAllocator != nil {
-		if err := s.relayAllocator.RevokeRelay(ctx, item.ID, "CLIENT_CLOSED"); err != nil {
-			return Connection{}, internal(err)
-		}
-	}
 	if changed {
 		s.publish(item, Event{Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC()})
+	}
+	if s.relayAllocator != nil {
+		if err := s.relayAllocator.RevokeRelay(ctx, item.ID, "CLIENT_CLOSED"); err != nil {
+			return item, mapDependencyError(err)
+		}
 	}
 	return item, nil
 }
@@ -596,15 +602,22 @@ func (s *Service) SweepExpired(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	var firstErr error
 	for _, item := range items {
+		// Expiry is already committed in the database. Publish the terminal
+		// connection event even when relay revocation remains pending so both
+		// participants can release their local state and the next sweep can
+		// retry the relay operation.
+		s.publish(item, Event{Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC()})
 		if s.relayAllocator != nil {
 			if err := s.relayAllocator.RevokeRelay(ctx, item.ID, "CONNECTION_EXPIRED"); err != nil {
-				return 0, err
+				if firstErr == nil {
+					firstErr = mapDependencyError(err)
+				}
 			}
 		}
-		s.publish(item, Event{Type: "connection.closed", Payload: connectionEventPayload(item), CreatedAt: s.now().UTC()})
 	}
-	return len(items), nil
+	return len(items), firstErr
 }
 
 func (s *Service) publish(item Connection, event Event) {

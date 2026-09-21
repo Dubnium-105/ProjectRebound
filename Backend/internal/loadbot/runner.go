@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -61,6 +62,22 @@ type Report struct {
 	EndGoroutines          int               `json:"end_goroutines"`
 	GoroutineDelta         int               `json:"goroutine_delta"`
 	Failures               map[string]uint64 `json:"failures"`
+}
+
+type httpStatusError struct {
+	StatusCode int
+	Code       string
+	Method     string
+	Path       string
+}
+
+func (e *httpStatusError) Error() string {
+	return fmt.Sprintf("HTTP %d for %s %s", e.StatusCode, e.Method, e.Path)
+}
+
+func isRelayAllocationRevokePending(err error) bool {
+	var statusErr *httpStatusError
+	return errors.As(err, &statusErr) && statusErr.Code == "RELAY_ALLOCATION_REVOKE_PENDING"
 }
 
 type Runner struct {
@@ -196,6 +213,18 @@ func (r *Runner) request(ctx context.Context, method, path string, body any) {
 }
 
 func (r *Runner) requestJSON(ctx context.Context, method, path, accessToken string, headers map[string]string, body, result any) error {
+	return r.requestJSONWithOptions(ctx, method, path, accessToken, headers, body, result, false)
+}
+
+// requestJSONSuppressFailure is used only for an idempotent cleanup retry. A
+// transient pending response must not make the load report fail when a later
+// retry receives the eventual success; the caller still records the cleanup
+// failure if the retry budget expires.
+func (r *Runner) requestJSONSuppressFailure(ctx context.Context, method, path, accessToken string, headers map[string]string, body, result any) error {
+	return r.requestJSONWithOptions(ctx, method, path, accessToken, headers, body, result, true)
+}
+
+func (r *Runner) requestJSONWithOptions(ctx context.Context, method, path, accessToken string, headers map[string]string, body, result any, suppressFailure bool) error {
 	var reader io.Reader
 	sent := 0
 	if body != nil {
@@ -238,7 +267,16 @@ func (r *Runner) requestJSON(ctx context.Context, method, path, accessToken stri
 			}
 		}
 		if !success && err == nil {
-			err = fmt.Errorf("HTTP %d for %s %s", resp.StatusCode, method, path)
+			statusErr := &httpStatusError{StatusCode: resp.StatusCode, Method: method, Path: path}
+			var envelope struct {
+				Error struct {
+					Code string `json:"code"`
+				} `json:"error"`
+			}
+			if json.Unmarshal(data, &envelope) == nil {
+				statusErr.Code = envelope.Error.Code
+			}
+			err = statusErr
 		}
 	}
 	r.mu.Lock()
@@ -248,7 +286,7 @@ func (r *Runner) requestJSON(ctx context.Context, method, path, accessToken stri
 	r.report.BytesReceived += uint64(received)
 	if success {
 		r.report.SuccessfulRequests++
-	} else {
+	} else if !suppressFailure || !isRelayAllocationRevokePending(err) {
 		r.report.FailedRequests++
 		r.report.Failures[requestFailureCategory(method, path, statusCode)]++
 	}

@@ -2,6 +2,27 @@ package connection
 
 import "testing"
 
+type detailedDependencyError struct{}
+
+func (detailedDependencyError) Error() string { return "relay pending" }
+
+func (detailedDependencyError) ErrorDetails() (int, string, string, map[string]any) {
+	return 409, "RELAY_ALLOCATION_REVOKE_PENDING", "Relay allocation revocation is still pending.", map[string]any{
+		"pending_allocations": 1,
+	}
+}
+
+func TestMapDependencyErrorPreservesTypedRelayPending(t *testing.T) {
+	err := mapDependencyError(detailedDependencyError{})
+	serviceErr, ok := err.(*ServiceError)
+	if !ok {
+		t.Fatalf("mapped error type = %T, want *ServiceError", err)
+	}
+	if serviceErr.Status != 409 || serviceErr.Code != "RELAY_ALLOCATION_REVOKE_PENDING" || serviceErr.Details["pending_allocations"] != 1 {
+		t.Fatalf("mapped relay error = %#v", serviceErr)
+	}
+}
+
 func TestValidateCandidateEnforcesAddressClass(t *testing.T) {
 	tests := []struct {
 		name      string

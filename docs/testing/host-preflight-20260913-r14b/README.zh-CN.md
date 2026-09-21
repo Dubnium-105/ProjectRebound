@@ -1,6 +1,6 @@
-# r14b hardware-test package / 硬件测试包
+# r14b 硬件测试包
 
-English | [简体中文](README.zh-CN.md)
+[English](README.md) | 简体中文
 
 r14b 打包完成。包内 23 个文件已逐项回读校验，状态为 `PASS_PACKAGE_BYTES_ONLY`。
 
@@ -16,6 +16,4 @@ r14b 打包完成。包内 23 个文件已逐项回读校验，状态为 `PASS_P
 
 `release_ready=false`；本轮原生多人入场、出生和第二次冷启动验收均未运行。r13 的 `world_ready_timeout` 根因仍未知。r14b 保留严格名单及签名准入，包含首次 PID 管道连接时序调整、InitListen 失败传播和 HOST 诊断。
 
-The archive is complete and all 23 archived files passed byte verification. Host preflight is blocked by the previously installed Payload hash. No DLL was installed and no game was launched. Install the new packaged Payload and rerun preflight before hardware testing. Native multiplayer acceptance has not run; this is not a production-ready release.
-
-Evidence is preserved in [evidence](evidence/); archive and manifest hashes are recorded in the package build receipt.
+英文版记录见 [README.md](README.md)。

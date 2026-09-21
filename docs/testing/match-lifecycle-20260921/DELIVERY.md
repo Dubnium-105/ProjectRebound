@@ -1,24 +1,26 @@
-# r14b-flowfix 交付清单
+# r14b-flowfix delivery manifest
 
-两个仓库的实现与组件验证已完成，以下为本地测试制品；没有推送、部署或执行实机对局。
+English | [简体中文](DELIVERY.zh-CN.md)
 
-- Backend / Payload 源提交：`101e15902a2a0bcfb6ae76e5c096e00ec78bba21`。
-- Toolbox 源提交：`8a641dc77d8e377abdbf139ed7c210960db2f149`。
-- Backend 要求 schema **49**；严格准入仍为 `strict-roster-v2`，新增生命周期为 `match-lifecycle-v1`。
-- 两个压缩包都经过逐文件字节回读验证；`release_ready=false`。
+Implementation and component verification for both repositories is complete. The items below are local test artifacts; nothing was pushed or deployed, and no native match was played.
 
-## [ProjectRebound-r14b-flowfix-20260921-windows-x64.zip](../../../artifacts/hardware-test-20260921-r14b-flowfix/ProjectRebound-r14b-flowfix-20260921-windows-x64.zip)
+- Backend / Payload source commit: `101e15902a2a0bcfb6ae76e5c096e00ec78bba21`.
+- Toolbox source commit: `8a641dc77d8e377abdbf139ed7c210960db2f149`.
+- Backend requires schema **49**; strict admission remains `strict-roster-v2`, with `match-lifecycle-v1` added.
+- Both archives passed per-file byte readback; `release_ready=false`.
 
-大小：23,643,317 字节；文件数：23。
+## `artifacts/hardware-test-20260921-r14b-flowfix/ProjectRebound-r14b-flowfix-20260921-windows-x64.zip`
 
-SHA-256：`4b9cb706743f5d4db0da0c2bdff77a8223b47d77de148db773c255671a9a9389`。
+Size: 23,643,317 bytes; file count: 23.
 
-## [ProjectRebound-r14b-flowfix-20260921-server-linux-amd64.tar.gz](../../../artifacts/hardware-test-20260921-r14b-flowfix/ProjectRebound-r14b-flowfix-20260921-server-linux-amd64.tar.gz)
+SHA-256: `4b9cb706743f5d4db0da0c2bdff77a8223b47d77de148db773c255671a9a9389`.
 
-大小：47,763,969 字节；文件数：57。
+## `artifacts/hardware-test-20260921-r14b-flowfix/ProjectRebound-r14b-flowfix-20260921-server-linux-amd64.tar.gz`
 
-SHA-256：`996496a945fca9d86f2c2d7f0737933160b68dc2a8504e03b42e96b8cbbe4959`。
+Size: 47,763,969 bytes; file count: 57.
 
-Windows 包包含配套 EXE / DLL、安装与回退脚本、检查脚本、许可证和测试说明。Linux 包包含 control-plane、meta-server、edge-relay 及迁移 SQL，供部署人员使用。
+SHA-256: `996496a945fca9d86f2c2d7f0737933160b68dc2a8504e03b42e96b8cbbe4959`.
 
-测试结果见 [VERIFICATION.md](VERIFICATION.md)，四模式实机验收矩阵见 [README.md](README.md)。部署匹配后端及三个独立 Steam 账号的完整战局验收仍为 **NOT_RUN**。
+The Windows archive contains the matching EXE / DLL, install and rollback scripts, license, and test instructions. The Linux archive contains control-plane, meta-server, edge-relay, and migration SQL for the deployment operator.
+
+See [VERIFICATION.md](VERIFICATION.md) for test results and [README.md](README.md) for the four-mode physical acceptance matrix. Full-match acceptance with the matching Backend and three independent Steam accounts remains **NOT_RUN**.

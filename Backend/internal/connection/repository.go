@@ -378,9 +378,22 @@ func (r *Repository) UpdateState(
 func (r *Repository) SweepExpired(ctx context.Context, now time.Time) ([]Connection, error) {
 	rows, err := r.pool.Query(ctx, `
 		UPDATE connections
-		SET state = 'EXPIRED', failure_reason = 'SESSION_TTL_EXPIRED',
+		SET state = CASE WHEN state NOT IN ('FAILED', 'EXPIRED', 'CLOSED') THEN 'EXPIRED' ELSE state END,
+		    failure_reason = CASE WHEN state NOT IN ('FAILED', 'EXPIRED', 'CLOSED')
+		        THEN 'SESSION_TTL_EXPIRED' ELSE failure_reason END,
 		    closed_at = COALESCE(closed_at, $1), updated_at = $1
-		WHERE expires_at <= $1 AND state NOT IN ('FAILED', 'EXPIRED', 'CLOSED')
+		WHERE expires_at <= $1
+		  AND (
+		      state NOT IN ('FAILED', 'EXPIRED', 'CLOSED')
+		      OR EXISTS (
+		          SELECT 1 FROM relay_allocations
+		          WHERE relay_allocations.connection_id = connections.id
+		            AND (
+		                relay_allocations.state NOT IN ('CLOSED', 'FAILED')
+		                OR relay_allocations.revoke_requested_at IS NOT NULL
+		            )
+		      )
+		  )
 		RETURNING `+connectionColumns,
 		now,
 	)
@@ -433,7 +446,10 @@ func (r *Repository) CloseForRoom(ctx context.Context, roomID, reason string, no
 		       OR EXISTS (
 			   SELECT 1 FROM relay_allocations
 			   WHERE relay_allocations.connection_id = connections.id
-			     AND relay_allocations.revoke_requested_at IS NOT NULL
+			     AND (
+			         relay_allocations.state NOT IN ('CLOSED', 'FAILED')
+			         OR relay_allocations.revoke_requested_at IS NOT NULL
+			     )
 		       ))
 		RETURNING `+connectionColumns,
 		roomID, reason, now,
@@ -470,7 +486,10 @@ func (r *Repository) CloseForRoomMember(
 		       OR EXISTS (
 			   SELECT 1 FROM relay_allocations
 			   WHERE relay_allocations.connection_id = connections.id
-			     AND relay_allocations.revoke_requested_at IS NOT NULL
+			     AND (
+			         relay_allocations.state NOT IN ('CLOSED', 'FAILED')
+			         OR relay_allocations.revoke_requested_at IS NOT NULL
+			     )
 		       ))
 		RETURNING `+connectionColumns,
 		roomID, playerID, reason, now,

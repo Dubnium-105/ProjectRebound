@@ -17,6 +17,12 @@ func (e *ServiceError) HTTPStatus() int       { return e.Status }
 func (e *ServiceError) ErrorCode() string     { return e.Code }
 func (e *ServiceError) PublicMessage() string { return e.Message }
 
+// ErrorDetails lets dependent services preserve the relay error contract when
+// they need to return it through their own HTTP or internal service boundary.
+func (e *ServiceError) ErrorDetails() (int, string, string, map[string]any) {
+	return e.Status, e.Code, e.Message, e.Details
+}
+
 func (e *ServiceError) Error() string {
 	if e.Cause != nil {
 		return e.Code + ": " + e.Cause.Error()

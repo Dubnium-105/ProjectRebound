@@ -2189,6 +2189,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/match-attempts/{attempt_id}/host/lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reportP2PMatchLifecycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/match-attempts/{attempt_id}/host/complete": {
         parameters: {
             query?: never;
@@ -2343,6 +2359,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["heartbeatDedicatedMatchAuthority"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/game-servers/{server_id}/match-attempts/{attempt_id}/lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reportDedicatedMatchLifecycle"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2748,6 +2780,7 @@ export interface paths {
         get: operations["getConnection"];
         put?: never;
         post?: never;
+        /** @description Closes the connection immediately. If Relay revocation is pending, retry this idempotent request until the allocation closure is acknowledged. */
         delete: operations["closeConnection"];
         options?: never;
         head?: never;
@@ -5132,9 +5165,9 @@ export interface components {
         /** @enum {string} */
         MatchTransportKind: "LEGACY_RELAY" | "VNT";
         /** @enum {string} */
-        MatchLobbyState: "OPEN" | "FROZEN" | "PROVISIONING" | "CONNECTING" | "RUNNING" | "COMPLETED" | "ABORTED";
+        MatchLobbyState: "OPEN" | "FROZEN" | "PROVISIONING" | "CONNECTING" | "RUNNING" | "ENDING" | "COMPLETED" | "ABORTED";
         /** @enum {string} */
-        MatchAttemptState: "FROZEN" | "PROVISIONING" | "CONNECTING" | "RUNNING" | "COMPLETED" | "ABORTED";
+        MatchAttemptState: "FROZEN" | "PROVISIONING" | "CONNECTING" | "RUNNING" | "ENDING" | "COMPLETED" | "ABORTED";
         /** @enum {string} */
         MatchCleanupState: "CLEARED" | "PENDING";
         DedicatedMatchAssignment: {
@@ -5223,6 +5256,18 @@ export interface components {
             native_cleared_at?: string;
             cleanup_error?: string;
             world_instance_id?: string;
+            match_generation?: number;
+            /** @enum {string} */
+            lifecycle_phase?: "RESULT_CONFIRMED" | "RETURN_READY";
+            /** Format: int64 */
+            lifecycle_event_seq?: number;
+            /** Format: date-time */
+            result_confirmed_at?: string;
+            /** Format: date-time */
+            return_ready_at?: string;
+            /** Format: date-time */
+            ending_deadline?: string;
+            completion_warning?: string;
             endpoint_host?: string;
             endpoint_port?: number;
             /** Format: date-time */
@@ -5415,6 +5460,17 @@ export interface components {
         MatchCompleteRequest: {
             success: boolean;
             failure_code?: string;
+        };
+        MatchLifecycleRequest: {
+            /** @enum {string} */
+            phase: "RESULT_CONFIRMED" | "RETURN_READY";
+            world_instance_id: string;
+            /** Format: int64 */
+            roster_revision: number;
+            route_generation: number;
+            match_generation: number;
+            /** Format: int64 */
+            event_seq: number;
         };
         /** @description A native-world acknowledgement must match the persisted world, roster revision, and route generation. For an owned process exit, provide all three evidence fields; partial evidence is rejected. A P2P HOST may send an empty world only when no world was persisted before its owned child exited, or may send `evidence_kind=native_process_not_started` with empty process fields before Payload/world publication; a persisted world must be echoed exactly. The process ID and start fingerprint are supervisor evidence metadata and do not replace local proof that the owned child handle signaled. */
         MatchNativeClearedRequest: {
@@ -10561,6 +10617,36 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
+    reportP2PMatchLifecycle: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+            };
+            path: {
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchLifecycleRequest"];
+            };
+        };
+        responses: {
+            /** @description Lifecycle phase recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
     completeP2PMatchAttempt: {
         parameters: {
             query?: never;
@@ -10883,6 +10969,41 @@ export interface operations {
                 };
                 content?: never;
             };
+        };
+    };
+    reportDedicatedMatchLifecycle: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque authority-session binding extracted only inside the Toolbox or server core from the signed allocation. Never expose it through UI DTOs or logs. */
+                "X-Match-Authority-Session": components["parameters"]["MatchAuthoritySession"];
+                "X-Game-Server-Certificate": components["parameters"]["GameServerCertificateFingerprint"];
+                "X-Game-Server-Timestamp": components["parameters"]["GameServerRequestTimestamp"];
+                "X-Game-Server-Nonce": components["parameters"]["GameServerRequestNonce"];
+                "X-Game-Server-Generation": components["parameters"]["GameServerCredentialGeneration"];
+            };
+            path: {
+                server_id: components["parameters"]["GameServerID"];
+                attempt_id: components["parameters"]["MatchAttemptID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchLifecycleRequest"];
+            };
+        };
+        responses: {
+            /** @description Lifecycle phase recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchLobbyResponse"];
+                };
+            };
+            409: components["responses"]["Conflict"];
         };
     };
     completeDedicatedMatchAttempt: {
@@ -11444,6 +11565,15 @@ export interface operations {
             };
             /** @description Active account and connection participation are required. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description RELAY_ALLOCATION_REVOKE_PENDING; the connection is closed but its Relay allocation has not yet acknowledged revocation. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

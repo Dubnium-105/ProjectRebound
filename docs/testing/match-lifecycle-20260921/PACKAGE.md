@@ -1,5 +1,8 @@
 # r14b lifecycle test candidate
 
+English | [简体中文](PACKAGE.zh-CN.md)
+
+
 This is a hardware-test candidate with `release_ready=false`. Three-account native gameplay and all four transport modes remain **NOT_RUN**.
 
 The coordinator must first deploy the matching Backend source and apply migration **49**. Packaging did not deploy any service or change a database. The client still uses the existing api/cnapi/meta service origins. A schema 48 service is not a valid acceptance environment for this candidate. The Linux server package is an operator handoff without credentials.

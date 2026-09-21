@@ -188,8 +188,7 @@ func (r *Runner) runEndToEnd(ctx context.Context) {
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	for _, pair := range pairs {
-		if err := r.requestJSONAs(cleanupCtx, pair.clients[0], http.MethodDelete,
-			"/v1/connections/"+pair.connectionID, nil, nil, nil); err != nil {
+		if err := r.closeRelayConnection(cleanupCtx, pair); err != nil {
 			r.recordFailure("relay_cleanup")
 		} else {
 			r.mu.Lock()
@@ -200,6 +199,26 @@ func (r *Runner) runEndToEnd(ctx context.Context) {
 	}
 	for _, match := range matches {
 		r.completeMatchAttempt(cleanupCtx, match)
+	}
+}
+
+func (r *Runner) closeRelayConnection(ctx context.Context, pair *relayPair) error {
+	path := "/v1/connections/" + pair.connectionID
+	for {
+		err := r.requestJSONAsSuppressFailure(ctx, pair.clients[0], http.MethodDelete, path, nil, nil, nil)
+		if err == nil {
+			return nil
+		}
+		if !isRelayAllocationRevokePending(err) {
+			return err
+		}
+		timer := time.NewTimer(250 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
 	}
 }
 
@@ -958,6 +977,20 @@ func (r *Runner) requestJSONAs(
 ) error {
 	return client.withAccessToken(func(accessToken string) error {
 		return r.requestJSON(ctx, method, path, accessToken, headers, body, result)
+	})
+}
+
+func (r *Runner) requestJSONAsSuppressFailure(
+	ctx context.Context,
+	client *virtualClient,
+	method string,
+	path string,
+	headers map[string]string,
+	body any,
+	result any,
+) error {
+	return client.withAccessToken(func(accessToken string) error {
+		return r.requestJSONSuppressFailure(ctx, method, path, accessToken, headers, body, result)
 	})
 }
 

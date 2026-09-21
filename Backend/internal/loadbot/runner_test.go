@@ -1,6 +1,7 @@
 package loadbot
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
@@ -26,6 +27,100 @@ func TestRequestFailureCategoryNormalizesIdentifiers(t *testing.T) {
 		if got != want {
 			t.Errorf("requestFailureCategory() = %q, want %q", got, want)
 		}
+	}
+}
+
+func TestCloseRelayConnectionRetriesPendingUntilSuccess(t *testing.T) {
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.Method != http.MethodDelete || r.URL.Path != "/v1/connections/conn-1" {
+			t.Fatalf("unexpected cleanup request %s %s", r.Method, r.URL.Path)
+		}
+		if calls == 1 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			_, _ = w.Write([]byte(`{"error":{"code":"RELAY_ALLOCATION_REVOKE_PENDING"}}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	runner := New(Config{ControlPlaneURL: server.URL})
+	runner.report.Failures = make(map[string]uint64)
+	pair := &relayPair{
+		connectionID: "conn-1",
+		clients:      [2]*virtualClient{{accessToken: "access"}, nil},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := runner.closeRelayConnection(ctx, pair); err != nil {
+		t.Fatalf("closeRelayConnection() error = %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("cleanup requests = %d, want 2", calls)
+	}
+	if runner.report.FailedRequests != 0 || runner.report.SuccessfulRequests != 1 {
+		t.Fatalf("cleanup report = %#v, want one successful request and no failed pending retry", runner.report)
+	}
+}
+
+func TestCloseRelayConnectionDoesNotRetryNonPendingError(t *testing.T) {
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"error":{"code":"CONNECTION_NOT_READY"}}`))
+	}))
+	defer server.Close()
+
+	runner := New(Config{ControlPlaneURL: server.URL})
+	runner.report.Failures = make(map[string]uint64)
+	pair := &relayPair{
+		connectionID: "conn-2",
+		clients:      [2]*virtualClient{{accessToken: "access"}, nil},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := runner.closeRelayConnection(ctx, pair); err == nil {
+		t.Fatal("closeRelayConnection() accepted a non-pending error")
+	}
+	if calls != 1 {
+		t.Fatalf("cleanup requests = %d, want 1", calls)
+	}
+	if runner.report.FailedRequests != 1 {
+		t.Fatalf("failed cleanup requests = %d, want 1", runner.report.FailedRequests)
+	}
+}
+
+func TestCloseRelayConnectionPendingTimeoutReturnsError(t *testing.T) {
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"error":{"code":"RELAY_ALLOCATION_REVOKE_PENDING"}}`))
+	}))
+	defer server.Close()
+
+	runner := New(Config{ControlPlaneURL: server.URL})
+	runner.report.Failures = make(map[string]uint64)
+	pair := &relayPair{
+		connectionID: "conn-3",
+		clients:      [2]*virtualClient{{accessToken: "access"}, nil},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := runner.closeRelayConnection(ctx, pair); err == nil {
+		t.Fatal("closeRelayConnection() hid a pending timeout")
+	}
+	if calls == 0 {
+		t.Fatal("cleanup did not issue a request")
+	}
+	if runner.report.FailedRequests != 0 {
+		t.Fatalf("pending retries counted as failed requests: %d", runner.report.FailedRequests)
 	}
 }
 
